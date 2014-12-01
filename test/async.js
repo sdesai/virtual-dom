@@ -1,9 +1,43 @@
-var Rx = require('rx'),
-    Observable = Rx.Observable;
+var h = require('virtual-dom/h');
+var diff = require('virtual-dom/diff');
+var patch = require('virtual-dom/patch');
+var createElement = require('virtual-dom/create-element');
 
-var ObservableOf = Observable.of.bind(Observable);                                          // synchronous - currentThread/Trampoline
-var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate); // synchronous
-var ObservableOfAsync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.timeout);  // async
+var Rx = require('rx');
+var Observable = Rx.Observable;
+
+var ObservableOf = Observable.of.bind(Observable);
+var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
+var ObservableOfAsync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.timeout);
+
+Observable.prototype.replayLast = function() {
+    var self = this,
+    last;
+
+    return Observable.create(function(observer) {
+
+        if (last !== undefined) {
+            observer.onNext(last);
+        }
+
+        return self.subscribe(
+
+            function onNext(value) {
+                last = value;
+                observer.onNext(value);
+            },
+
+            function onError(e) {
+                last = null;
+                observer.onError(e);
+            },
+
+            function () {
+                last = null;
+                observer.onCompleted();
+            });
+    });
+};
 
 function eq(equalToVal) {
     return function(val) {
@@ -50,7 +84,7 @@ Component.create = function(proto) {
             }
         }
 
-        return comp.vdoms;
+        return comp;
     };
 
     component.prototype = Object.create(Component.prototype);
@@ -63,44 +97,41 @@ Component.create = function(proto) {
     return component;
 }
 
-Component.prototype = Object.create({
-    constructor: Component,
+Component.prototype = Object.create(Observable.prototype);
+Component.prototype.constructor = Component;
 
-    render: function(state) {
-        return null;
-    },
+Component.prototype.render = function(state) {
+    return null;
+};
 
-    setState: function(state) {
-        this._states.onNext(state);
-    },
+Component.prototype.setState = function(state) {
+    this._states.onNext(state);
+};
 
-    toVDOMS: function toVDOMS(component) {
-        var obs;
+Component.prototype.toVDOMS = function toVDOMS(component) {
+    var obs;
 
-        if (!(component instanceof Array) && !(component instanceof Observable)) {
-            obs = ObservableOfSync(component);
+    if (!(component instanceof Array) && !(component instanceof Observable)) {
+        obs = ObservableOfSync(component);
 
-        } else if (component instanceof Array) {
-            obs = Observable.combineLatest.apply(Observable, component.map(toVDOMS).concat(argsToArray));
+    } else if (component instanceof Array) {
+        obs = Observable.combineLatest.apply(Observable, component.map(toVDOMS).concat(argsToArray));
 
-        } else if (component instanceof Observable) {
-            obs = component.switchMap(toVDOMS).startWith("");
-
-        }
-
-        return obs;
-    },
-
-    get vdoms() {
-        if (!this._vdoms) {
-            this._vdoms = new Rx.ReplaySubject(1);
-
-            // TODO: takeUntil(unmounted);
-            this.toVDOMS(this.states.map(this.render)).subscribe(this._vdoms);
-        }
-        return this._vdoms;
+    } else if (component instanceof Observable) {
+        obs = component.switchMap(toVDOMS).startWith("");
     }
-});
+
+    return obs;
+};
+
+Component.prototype._subscribe = function() {
+
+    if (!this.vdoms) {
+        this.vdoms = this.toVDOMS(this.states.map(this.render)).replayLast();
+    }
+
+    return this.vdoms.subscribe.apply(this.vdoms, arguments);
+};
 
 var Label = Component.create({
     render: function(state) {
@@ -132,150 +163,11 @@ var COUNT = 0;
 
 document.addEventListener("click", function(e) {
     var count = COUNT++;
-    if (!(count % 2)) {
-        Component._cache["a"].setState({guid:"a", text: count});
-    } else {
+    if ((count % 2)) {
         Component._cache["b"].setState({guid:"b", text: count});
+    } else {
+        Component._cache["a"].setState({guid:"a", text: count});
     }
 
     e.preventDefault();
 }, false);
-
-
-// ===========
-
-/*
-function Component(subscribe) {
-    this.viewModels = new Rx.Subject();
-    Observable.apply(this, subscribe);
-}
-
-Component.prototype = Object.create(Observable.prototype);
-
-Component.prototype.onNext = function(o) {
-    this.viewModels.onNext(o);
-}
-
-Component.prototype.getVDOMS = function() {}
-
-Component.prototype.subscribe = function() {
-
-    var lastVDOM;
-
-    return Observable.create(function subscribe(observer) {
-
-        if (lastVDOM) {
-            observer.onNext(lastVDOM);
-        }
-
-        return this.getVDOMS().subscribe(
-
-                function onNext(vdom) {
-                    lastVDOM = vdom;
-                    observer.onNext(vdom);
-                },
-
-                function onError(e) {
-                    observer.onError(e);
-                },
-
-                function onCompleted() {
-                    observer.onCompleted();
-                });
-
-    }).apply(this, arguments);
-
-    // return this.getVDOMS.apply(this, arguments);
-};
-
-factory({}, Label)
-
-function Label() {
-
-    var self = this;
-
-    this.clicks = new Rx.Subject();
-
-    this.disposable = this.viewModels.
-        switchMap(function(viewModel) {
-            return self.clicks.switchMap(function() {
-                return viewModel.getValue(["text"]).
-                            mergeMap(function(val) {
-                                return viewModel.setValue(["text"], val+1);
-                            });
-            });
-        }).subscribe(NOOP);
-}
-
-Label.prototype = Object.create(Component.prototype);
-
-Label.prototype.getVDOMs = function() {
-    return this.viewModels.map(function(viewModel) {
-        return <div onclick={this.clicks}> + viewModel.text + </div>;
-    });
-}
-
-Parent.prototype.getVDOMs = function() {
-    return this.viewModels.map(function(viewModel) {
-        return [
-            factory(viewModel.bind(["child"]), Label) // Obs<VDOM>
-        ];
-    });
-}
-
-
-// ---
-
-function factory(state, constructor) {
-
-    if (state.guid) {
-        comp = map[state.guid];
-    } else {
-        comp = new constructor();
-    }
-
-    comp.onNext(state);
-
-    return comp.getVDOMs();
-}
-
-Rx.Observable.interval(1000).take(20).
-                    switchMap(function(state) {
-                        return componentB(state);
-                    }).
-                    forEach(function(vdom) {
-                        console.log(vdom);
-                    });
-
-var root = Observable.of([
-    Observable.of("1"), Observable.of("2")   // A
-    Observable.of("3", "4")                  // B
-]);
-*/
-
-/*
-var root = [
-    render([render("a"), ["b", [render("bbb"), "c"]], "bbbb"]),
-    render(render("c"), render("d"), render("z")),
-    render(render("e")),
-    render("b"),
-    render("f", "h"),
-    "g"
-];
-*/
-
-/*
-render(root).forEach(
-    function(o) {
-        console.log("Next VDOM");
-        console.log(JSON.stringify(o, null, 2));
-    },
-    function() {
-        console.log("Error");
-    },
-    function() {
-        console.log("Completed");
-    });
-
-console.log("Subscribed");
-*/
