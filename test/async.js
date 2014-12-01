@@ -15,7 +15,7 @@ function argsToArray() {
     return Array.prototype.slice.call(arguments, 0);
 }
 
-function render(tree) {
+function getTree(tree) {
 
     if (!(tree instanceof Array || tree instanceof Observable)) {
         return ObservableOfSync(tree);
@@ -33,134 +33,43 @@ function render(tree) {
 
 }
 
-// ----
-
-var render = ObservableOfAsync;
-
-/*
-var tree = render([
-    render([
-        Observable.interval(3000).map(function(i) { return String.fromCharCode(65 + (i % 26)); }),
-        "b"
-    ]),
-    Observable.interval(1000).map(function(i) { var char = String.fromCharCode(65 + (i % 26)); return char + char; }),
-    "g"
-]);
-*/
-
-/*
-var componentA = (function() {
-
-    var A = {
-
-        states: new Rx.Subject(),
-
-        setState: function(state) {
-            return this.states.onNext(state);
-        },
-
-        render: function(state) {
-
-            if (!this.vdoms) {
-                this.vdoms = this.states.map(this.renderer.bind(this));
-            }
-
-            this.setState(state);
-
-            return this.vdoms;
-        },
-
-        renderer: function(state) {
-            return '<span class="A">' + state + '</span>';
-        }
-    };
-
-    return A.render.bind(A);
-}());
-
-var componentB = (function() {
-
-    var B = {
-
-        states: new Rx.Subject(),
-
-        setState: function(state) {
-            return this.states.onNext(state);
-        },
-
-        render: function(state) {
-
-            if (!this.vdoms) {
-                this.vdoms = this.states.map(this.renderer.bind(this));
-            }
-
-            this.setState(state);
-
-            return this.vdoms;
-        },
-
-        renderer: function(state) {
-            return '<span class="B">' + state + '</span>';
-        }
-    };
-
-    return B.render.bind(B);
-}());
-
-var componentC = (function() {
-
-    var C = {
-
-        states: new Rx.Subject(),
-
-        setState: function(state) {
-            return this.states.onNext(state);
-        },
-
-        render: function(state) {
-
-            if (!this.vdoms) {
-                this.vdoms = this.states.map(this.renderer.bind(this));
-            }
-
-            this.setState(state);
-
-            return this.vdoms;
-        },
-
-        renderer: function(state) {
-            return [
-                componentA(state), // Observable.of("vdom1", "vdom2", "vdom3")
-                componentB(state)
-            ];
-        }
-    };
-
-    return C.render.bind(C);
-}());
-*/
-
 function Component(state) {
-    this.states = new Rx.Subject();
-
-    if (state) {
-        this.setState(state);
-    }
+    this._states = new Rx.BehaviorSubject(state);
+    this.states = this._states.distinctUntilChanged();
 }
+
+Component._cache = {};
+Component._guid = 1;
 
 Component.create = function(proto) {
 
     var component = function(state) {
 
-        if (!(this instanceof component)) {
-            return new component(state);
-        } else {
-            Component.call(this, state);
+        var comp;
 
-            if (this.init) {
-                this.init(state);
+        if (state && state.guid) {
+            comp = Component._cache[state.guid];
+        }
+
+        if (!comp) {
+            if (!(this instanceof component)) {
+                comp = new component(state);
+            } else {
+                Component.call(this, state);
+
+                if (this.init) {
+                    this.init(state);
+                }
+
+                comp = this;
+
+                if (state) {
+                    Component._cache[state.guid] = comp;
+                }
             }
         }
+
+        return comp;
     };
 
     component.prototype = Object.create(Component.prototype);
@@ -181,19 +90,19 @@ Component.prototype.vdoms = function() {
 };
 
 Component.prototype.render = function(state) {
-    return "<div></div>";
+    return null;
 };
 
 Component.prototype.setState = function(state) {
-    this.states.onNext(state);
+    this._states.onNext(state);
 };
 
-Component.prototype.subscribe = function() {
+Component.prototype._subscribe = function() {
 
     var self = this,
         lastVDOM = null;
 
-    var obs = Observable.create(function(observer) {
+    var vdomsWrapperObs = Observable.create(function(observer) {
 
         if (lastVDOM) {
             observer.onNext(lastVDOM);
@@ -216,26 +125,45 @@ Component.prototype.subscribe = function() {
         );
     });
 
-    return obs.subscribe.apply(obs, arguments);
+    return vdomsWrapperObs.subscribe.apply(vdomsWrapperObs, arguments);
 };
 
 var Label = Component.create({
-
     render: function(state) {
-        return "<span>" + state.text + "</span>";
-    },
-
-    init: function(state) {
-        var self = this;
-        Rx.Observable.interval(1000).take(20).subscribe(function(i) {
-            self.setState({text:i});
-        });
+        return '<span id="' + state.guid + '">' + state.text + '</span>';
     }
 });
 
-Label({text:"100"}).subscribe(function(vdom) {
-    console.log(vdom);
+var Root = Component.create({
+    render: function(state) {
+        return [
+            Label({guid: "a", text: state.count}),
+            Label({guid: "b", text: state.count})
+        ];
+    }
 });
+
+getTree(Root({guid:"root", count:"initVal"})).forEach(
+    function(vdom) {
+        console.log(vdom);
+    },
+    function() {
+        console.log("error");
+    },
+    function() {
+        console.log("complete");
+    });
+
+var COUNT = 0;
+
+document.addEventListener("click", function() {
+    var count = COUNT++;
+    if (!(count % 2)) {
+        Component._cache["a"].setState({guid:"a", text: count});
+    } else {
+        Component._cache["b"].setState({guid:"b", text: count});
+    }
+}, false);
 
 
 // ===========
