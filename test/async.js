@@ -15,31 +15,12 @@ function argsToArray() {
     return Array.prototype.slice.call(arguments, 0);
 }
 
-function getTree(tree) {
-
-    if (!(tree instanceof Array || tree instanceof Observable)) {
-        return ObservableOfSync(tree);
-    }
-
-    if (tree instanceof Array) {
-        return Observable.combineLatest.apply(Observable, tree.map(getTree).concat(argsToArray));
-    }
-
-    if (tree instanceof Observable) {
-        return tree.switchMap(function(o) {
-            return getTree(o);
-        }).startWith("");
-    }
-
-}
-
 function Component(state) {
     this._states = new Rx.BehaviorSubject(state);
     this.states = this._states.distinctUntilChanged();
 }
 
 Component._cache = {};
-Component._guid = 1;
 
 Component.create = function(proto) {
 
@@ -85,10 +66,6 @@ Component.create = function(proto) {
 Component.prototype = Object.create(Observable.prototype);
 Component.prototype.constructor = Component;
 
-Component.prototype.vdoms = function() {
-    return this.states.map(this.render);
-};
-
 Component.prototype.render = function(state) {
     return null;
 };
@@ -97,10 +74,31 @@ Component.prototype.setState = function(state) {
     this._states.onNext(state);
 };
 
+Component.prototype.mapVDOMS = function mapVDOMS(component) {
+
+    if (!(component instanceof Array || component instanceof Observable)) {
+        return ObservableOfSync(component);
+    }
+
+    if (component instanceof Array) {
+        return Observable.combineLatest.apply(Observable, component.map(mapVDOMS).concat(argsToArray));
+    }
+
+    if (component instanceof Observable) {
+        return component.switchMap(function(o) {
+            return mapVDOMS(o);
+        }).startWith("");
+    }
+};
+
 Component.prototype._subscribe = function() {
 
     var self = this,
         lastVDOM = null;
+
+    if (!this.vdoms) {
+        this.vdoms = this.mapVDOMS(this.states.map(this.render));
+    }
 
     var vdomsWrapperObs = Observable.create(function(observer) {
 
@@ -108,7 +106,7 @@ Component.prototype._subscribe = function() {
             observer.onNext(lastVDOM);
         }
 
-        return self.vdoms().subscribe(
+        return self.vdoms.subscribe(
 
             function onNext(o) {
                 lastVDOM = o;
@@ -143,7 +141,7 @@ var Root = Component.create({
     }
 });
 
-getTree(Root({guid:"root", count:"initVal"})).forEach(
+Root({guid:"root", count:"initVal"}).forEach(
     function(vdom) {
         console.log(vdom);
     },
