@@ -42,15 +42,15 @@ Component.create = function(proto) {
                     this.init(state);
                 }
 
-                comp = this;
-
                 if (state) {
-                    Component._cache[state.guid] = comp;
+                    Component._cache[state.guid] = this;
                 }
+
+                return this;
             }
         }
 
-        return comp;
+        return comp.vdoms;
     };
 
     component.prototype = Object.create(Component.prototype);
@@ -63,68 +63,44 @@ Component.create = function(proto) {
     return component;
 }
 
-Component.prototype = Object.create(Observable.prototype);
-Component.prototype.constructor = Component;
+Component.prototype = Object.create({
+    constructor: Component,
 
-Component.prototype.render = function(state) {
-    return null;
-};
+    render: function(state) {
+        return null;
+    },
 
-Component.prototype.setState = function(state) {
-    this._states.onNext(state);
-};
+    setState: function(state) {
+        this._states.onNext(state);
+    },
 
-Component.prototype.mapVDOMS = function mapVDOMS(component) {
+    toVDOMS: function toVDOMS(component) {
+        var obs;
 
-    if (!(component instanceof Array || component instanceof Observable)) {
-        return ObservableOfSync(component);
-    }
+        if (!(component instanceof Array) && !(component instanceof Observable)) {
+            obs = ObservableOfSync(component);
 
-    if (component instanceof Array) {
-        return Observable.combineLatest.apply(Observable, component.map(mapVDOMS).concat(argsToArray));
-    }
+        } else if (component instanceof Array) {
+            obs = Observable.combineLatest.apply(Observable, component.map(toVDOMS).concat(argsToArray));
 
-    if (component instanceof Observable) {
-        return component.switchMap(function(o) {
-            return mapVDOMS(o);
-        }).startWith("");
-    }
-};
+        } else if (component instanceof Observable) {
+            obs = component.switchMap(toVDOMS).startWith("");
 
-Component.prototype._subscribe = function() {
-
-    var self = this,
-        lastVDOM = null;
-
-    if (!this.vdoms) {
-        this.vdoms = this.mapVDOMS(this.states.map(this.render));
-    }
-
-    var vdomsWrapperObs = Observable.create(function(observer) {
-
-        if (lastVDOM) {
-            observer.onNext(lastVDOM);
         }
 
-        return self.vdoms.subscribe(
+        return obs;
+    },
 
-            function onNext(o) {
-                lastVDOM = o;
-                observer.onNext(o);
-            },
+    get vdoms() {
+        if (!this._vdoms) {
+            this._vdoms = new Rx.ReplaySubject(1);
 
-            function onError(e) {
-                observer.onError(e);
-            },
-
-            function onCompleted() {
-                observer.onCompleted();
-            }
-        );
-    });
-
-    return vdomsWrapperObs.subscribe.apply(vdomsWrapperObs, arguments);
-};
+            // TODO: takeUntil(unmounted);
+            this.toVDOMS(this.states.map(this.render)).subscribe(this._vdoms);
+        }
+        return this._vdoms;
+    }
+});
 
 var Label = Component.create({
     render: function(state) {
@@ -154,13 +130,15 @@ Root({guid:"root", count:"initVal"}).forEach(
 
 var COUNT = 0;
 
-document.addEventListener("click", function() {
+document.addEventListener("click", function(e) {
     var count = COUNT++;
     if (!(count % 2)) {
         Component._cache["a"].setState({guid:"a", text: count});
     } else {
         Component._cache["b"].setState({guid:"b", text: count});
     }
+
+    e.preventDefault();
 }, false);
 
 
