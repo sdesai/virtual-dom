@@ -6,9 +6,7 @@ var createElement = require('virtual-dom/create-element');
 var Rx = require('rx');
 var Observable = Rx.Observable;
 
-var ObservableOf = Observable.of.bind(Observable);
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
-var ObservableOfAsync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.timeout);
 
 Observable.prototype.replayLast = function() {
     var self = this,
@@ -50,8 +48,11 @@ function argsToArray() {
 }
 
 function Component(state) {
+
     this._states = new Rx.BehaviorSubject(state);
     this.states = this._states.distinctUntilChanged();
+
+    this.mounted = new Rx.BehaviorSubject(false);
 }
 
 Component._cache = {};
@@ -124,10 +125,21 @@ Component.prototype.toVDOMS = function toVDOMS(component) {
     return obs;
 };
 
+Component.prototype.mount = function() {
+    this.mounted.onNext(true);
+    return this;
+};
+
+Component.prototype.unmount = function() {
+    this.mounted.onNext(false);
+    return this;
+};
+
 Component.prototype._subscribe = function() {
 
     if (!this.vdoms) {
-        this.vdoms = this.toVDOMS(this.states.map(this.render)).replayLast();
+        this.vdoms = new Rx.ReplaySubject(1);
+        this.toVDOMS(this.states.map(this.render)).subscribe(this.vdoms);
     }
 
     return this.vdoms.subscribe.apply(this.vdoms, arguments);
