@@ -4,9 +4,9 @@ var h = require("../h.js")
 var diff = require("../diff.js")
 var patch = require("../patch.js")
 var render = require("../create-element.js")
-var Node = require("vtree/vnode")
-var TextNode = require("vtree/vtext")
-var version = require("vtree/version")
+var Node = require("../vnode/vnode")
+var TextNode = require("../vnode/vtext")
+var version = require("../vnode/version")
 var assertEqualDom = require("./lib/assert-equal-dom.js")
 var patchCount = require("./lib/patch-count.js")
 
@@ -255,7 +255,7 @@ test("incompatible children are ignored", function (assert) {
             "cssText": "color: red;"
         }
     }, [
-        {}, null
+        null
     ])
     var dom = render(vdom)
     assert.equal(dom.id, "important")
@@ -824,6 +824,33 @@ test("Patching parent destroys stateful sibling", function (assert) {
     patch(rootNode, diff(deepTree, h("div")))
     assert.equal(count, 3)
 
+    assert.end()
+})
+
+test("Widget update can replace domNode", function (assert) {
+    var widgetInit = render(h("span.init"))
+    var widgetUpdate = render(h("span.update"))
+
+    function Widget () {}
+    Widget.prototype.init = function () {
+        return widgetInit
+    }
+    Widget.prototype.update = function () {
+        return widgetUpdate
+    }
+    Widget.prototype.destroy = function () {}
+    Widget.prototype.type = "Widget"
+
+    var initTree = h("div.init", [new Widget])
+    var updateTree = h("div.update", [new Widget])
+    var rootNode
+
+    rootNode = render(initTree)
+    assert.equal(rootNode.childNodes[0], widgetInit)
+
+    patch(rootNode, diff(initTree, updateTree))
+
+    assert.equal(rootNode.childNodes[0], widgetUpdate)
     assert.end()
 })
 
