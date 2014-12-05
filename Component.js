@@ -8,10 +8,8 @@ function toArray(arrayLike) {
 }
 
 function Component(state) {
-    this.states = new Rx.Subject();
-    this.mounted = new Rx.Subject();
-
-    this.setState(state);
+    this.states = new Rx.BehaviorSubject(state);
+    this.mounted = new Rx.BehaviorSubject(false);
 }
 
 Component._cache = {};
@@ -22,8 +20,8 @@ Component.create = function(proto) {
 
         var comp;
 
-        if (state && state.guid) {
-            comp = Component._cache[state.guid];
+        if (state && state._guid) {
+            comp = Component._cache[state._guid];
         }
 
         if (!comp) {
@@ -33,8 +31,8 @@ Component.create = function(proto) {
             } else {
                 Component.call(this, state);
 
-                if (state) {
-                    Component._cache[state.guid] = this;
+                if (state && state._guid) {
+                    Component._cache[state._guid] = this;
                 }
 
                 comp = this;
@@ -68,6 +66,7 @@ Component.prototype.setState = function(state) {
 };
 
 Component.prototype.toVDOMS = function toVDOMS(component) {
+
     var obs,
         children = component.children,
         childObservables;
@@ -76,7 +75,6 @@ Component.prototype.toVDOMS = function toVDOMS(component) {
         obs = component.switchMap(toVDOMS);
 
     } else if (children && children.length > 0) {
-
         childObservables = children.map(toVDOMS);
 
         childObservables.push(function() {
@@ -89,6 +87,7 @@ Component.prototype.toVDOMS = function toVDOMS(component) {
 
     } else {
         obs = ObservableOfSync(component);
+
     }
 
     return obs;

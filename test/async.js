@@ -40,13 +40,34 @@ var Label = Component.create({
 
 });
 
+var LabelList = Component.create({
+    render: function(state) {
+
+        return elem('div', {
+            style: {
+                backgroundColor: '#a00',
+                padding: '10px',
+                margin: '2px'
+            }
+        }, state.labels.map(function(label) {
+            return Label({text:label});
+        }));
+
+    }
+});
+
 var Root = Component.create({
 
     render: function(state) {
 
-        var vdom = elem("div", null, [
-            Label({guid: "a", text: state.model.a}),
-            Label({guid: "b", text: state.model.b})
+        var vdom = elem('div', { id:'foo' },[
+
+            Label({text: "A: " + state.model.a}),
+            Label({text: "B: " + state.model.b}),
+
+            LabelList({
+                labels: ["foo: " + state.model.i, "bar: " + state.model.i]
+            })
         ]);
 
         return vdom;
@@ -56,9 +77,14 @@ var Root = Component.create({
 
 // ---- App Code ----
 
-var root = Root({guid:"root"});
-var rootVDOMs = root.publish().refCount();
+var rootComponent = Root({model: {i:0, a:-1, b:-1}});
+var rootVDOMs = rootComponent;
 var rootElem;
+var i = 0;
+
+rootVDOMs.forEach(function() {
+    console.log(i++);
+});
 
 function initialRender(VDOM) {
     var container = makeContainer();
@@ -68,35 +94,36 @@ function initialRender(VDOM) {
 }
 
 function incrementalRender(VDOMPair) {
+
     var oldVDOM = VDOMPair[0];
     var newVDOM = VDOMPair[1];
+
     var patches = diff(oldVDOM, newVDOM);
 
     rootElem = patch(rootElem, patches);
 }
 
 function setRootState(model) {
-    root.setState({guid:"root", model: model});
+    rootComponent.setState({model: model});
+}
+
+function updateRootState(prevModel) {
+    if (++prevModel.i % 2) {
+        prevModel.a++;
+    } else {
+        prevModel.b++;
+    }
+    return prevModel;
 }
 
 rootVDOMs.take(1).forEach(initialRender);
 rootVDOMs.pairwise().forEach(incrementalRender);
 
 enterKeyDowns.
-    scan({i: 0, a: 0, b: 0}, function(prev) {
-        if (++prev.i % 2) {
-            prev.a++;
-        } else {
-            prev.b++;
-        }
-
-        return prev;
-    }).
+    scan(rootComponent.states.value.model, updateRootState).
     forEach(setRootState);
 
 // ---------- DOM Fluff ----------
-
-document.body.appendChild(document.createTextNode("Press Enter..."));
 
 function makeContainer() {
 
