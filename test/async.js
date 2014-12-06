@@ -41,6 +41,7 @@ var Label = Component.create({
 });
 
 var LabelList = Component.create({
+
     render: function(state) {
 
         return elem('div', {
@@ -52,8 +53,8 @@ var LabelList = Component.create({
         }, state.labels.map(function(label) {
             return Label({text:label});
         }));
-
     }
+
 });
 
 var Root = Component.create({
@@ -77,7 +78,7 @@ var Root = Component.create({
 
 // ---- App Code ----
 
-var rootComponent = Root({model: {i:0, a:-1, b:-1}});
+var rootComponent = Root({model: {i:0, a:0, b:0}});
 var rootVDOMs = rootComponent;
 var rootElem;
 var i = 0;
