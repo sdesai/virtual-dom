@@ -3,31 +3,6 @@ var Rx = require('rx');
 var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
 
-Rx.Observable.prototype.replayLast = function() {
-    var self = this,
-    last;
-
-    return Observable.create(function(observer) {
-        if (last !== undefined) {
-            observer.onNext(last);
-        }
-
-        return self.subscribe(
-            function onNext(value) {
-                last = value;
-                observer.onNext(value);
-            },
-            function onError(e) {
-                last = null;
-                observer.onError(e);
-            },
-            function () {
-                last = null;
-                observer.onCompleted();
-            });
-    });
-}
-
 function toArray(arrayLike) {
     return Array.prototype.slice.call(arrayLike, 0);
 }

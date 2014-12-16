@@ -4,7 +4,6 @@ var patch = require('../patch');
 var create = require('../create-element');
 
 var Rx = require('rx');
-var Observable = Rx.Observable;
 
 var Component = require('../Component');
 var Model = require('../Model');
@@ -65,9 +64,8 @@ var Root = Component.create("Root", {
 var model = new Model('root', { count:0 });
 
 var rootComponent = Root(model);
-var rootVDOMs = rootComponent.publish().refCount();
+var rootVDOMs = rootComponent;
 var rootElem;
-var i = 0;
 
 function initialRender(VDOM) {
     var container = makeContainer();
@@ -84,7 +82,7 @@ function incrementalRender(VDOMPair) {
     rootElem = patch(rootElem, patches);
 }
 
-function updateRootState(prev, curr) {
+function updateRootState() {
 
     var currentCount = model.get("count");
     model.set("count", currentCount + 1);
@@ -93,7 +91,7 @@ function updateRootState(prev, curr) {
 }
 
 function setRootState(model) {
-   rootComponent.setState(model);
+    rootComponent.setState(model);
 }
 
 rootVDOMs.take(1).forEach(initialRender);
@@ -101,7 +99,7 @@ rootVDOMs.pairwise().forEach(incrementalRender);
 
 rootVDOMs.forEach(function(vdom) {
     console.log("Root VDOM onNext'ed: " + vdom.children[0].children[0].text + "," +  vdom.children[1].children[0].text);
-})
+});
 
 enterKeyDowns.
     scan(model, updateRootState).
