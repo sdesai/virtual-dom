@@ -1,42 +1,37 @@
-var Immutable = require('immutable');
+var Immutable = require("immutable");
+var Rx = require("rx");
 
-function cacheKey(path) {
-    return path;
-}
-
-function Model(path, state) {
-    this._cache = {};
-    this.path = path;
+function Model(state, onChange) {
+    this.root = this;
     this.state = Immutable.fromJS(state);
-    this.guid = cacheKey(path);
+    this.path = [];
+
+    this.changes = new Rx.Subject();
+
+    if (onChange) {
+        this.changes.sample(16).forEach(onChange);
+    }
 }
 
-Model.prototype.get = function(prop) {
-    return this.state.get(prop);
-};
+Model.prototype = {
 
-Model.prototype.set = function(prop, value) {
-    this.state = this.state.set(prop, value);
-};
+    bind: function(path) {
+        var boundModel = Object.create(this);
 
-Model.prototype.merge = function(state) {
-    this.state = this.state.mergeDeep(state);
-};
+        boundModel.state = this.state.getIn(path);
+        boundModel.path = this.path.concat(path);
 
-Model.prototype.bind = function(path, state) {
+        return boundModel;
+    },
 
-    var guid = cacheKey(path),
-        model = this._cache[guid];
+    get: function(path) {
+        return this.state.getIn(path);
+    },
 
-    if (!model) {
-        model = this._cache[guid] = new Model(path, state);
-    } else {
-        model.merge(state);
+    set: function(path, value) {
+        this.root.state = this.root.state.setIn(this.path.concat(path), value);
+        this.changes.onNext(this);
     }
-
-    return model;
 };
 
 module.exports = Model;
-
-

@@ -1,24 +1,17 @@
+var Rx = require('rx');
+
 var elem = require('../h');
 var diff = require('../diff');
 var patch = require('../patch');
 var create = require('../create-element');
-
-var Rx = require('rx');
+var utils = require('../utils');
 
 var Component = require('../Component');
 var Model = require('../Model');
 
-// ---- Utils ----
-
-function eq(equalToVal) {
-    return function(val) {
-        return val === equalToVal;
-    };
-}
-
 var enterKeyDowns = Rx.Observable.fromEvent(document.body, "keydown").
     pluck("keyCode").
-    where(eq(13));
+    where(utils.eq(13));
 
 // ---- Custom Components ----
 
@@ -26,10 +19,9 @@ var Label = Component.create("Label", {
 
     render: function renderLabel(model) {
 
-        var text = model.get("text");
+        var text = model.get(["text"]);
 
         var vdom = elem('div', {
-            id: model.guid,
             style: {
                 backgroundColor: "#eee",
                 margin: "2px",
@@ -47,11 +39,9 @@ var Root = Component.create("Root", {
 
     render: function renderRoot(model) {
 
-        var count = model.get('count');
-
-        var vdom = elem('div', { id:'foo' }, [
-            Label( model.bind('a', { text: 'A: ' + (count * 2) }) ),
-            Label( model.bind('b', { text: 'B: ' + (count) }) )
+        var vdom = elem('div', null, [
+            Label( model.bind('a') ),
+            Label( model.bind('b') )
         ]);
 
         return vdom;
@@ -61,11 +51,28 @@ var Root = Component.create("Root", {
 
 // ---- App Code ----
 
-var model = new Model('root', { count:0 });
-
-var rootComponent = Root(model);
-var rootVDOMs = rootComponent;
 var rootElem;
+
+var rootComponent = Root(
+
+    new Model({
+            count: 0,
+
+            a: {
+                text: "A:" + 0
+            },
+
+            b: {
+                text: "B:" + 0
+            }
+        },
+
+        function onModelChange(model) {
+            rootComponent.setState(model);
+        }
+    )
+
+);
 
 function initialRender(VDOM) {
     var container = makeContainer();
@@ -82,28 +89,36 @@ function incrementalRender(VDOMPair) {
     rootElem = patch(rootElem, patches);
 }
 
-function updateRootState() {
+function updateState(model) {
 
-    var currentCount = model.get("count");
-    model.set("count", currentCount + 1);
+    var count = model.get(["count"]);
+    var newCount = count + 1;
 
-    return model;
+    model.set(["count"], newCount);
+
+    if (newCount % 2) {
+        model.set(["a", "text"], "A:" + newCount);
+    } else {
+        model.set(["b", "text"], "B:" + newCount);
+    }
+
 }
 
-function setRootState(model) {
-    rootComponent.setState(model);
-}
+rootComponent.take(1).forEach(initialRender);
+rootComponent.pairwise().forEach(incrementalRender);
 
-rootVDOMs.take(1).forEach(initialRender);
-rootVDOMs.pairwise().forEach(incrementalRender);
+enterKeyDowns.
+    map(function() {
+        return rootComponent.states.value;
+    }).
+    forEach(updateState);
 
-rootVDOMs.forEach(function(vdom) {
+// --- Debug Info ---
+
+rootComponent.forEach(function(vdom) {
     console.log("Root VDOM onNext'ed: " + vdom.children[0].children[0].text + "," +  vdom.children[1].children[0].text);
 });
 
-enterKeyDowns.
-    scan(model, updateRootState).
-    forEach(setRootState);
 
 // ---------- DOM Fluff ----------
 

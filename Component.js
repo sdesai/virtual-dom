@@ -1,17 +1,11 @@
 var Rx = require('rx');
+var utils = require("./utils");
 
+var mix = utils.mix;
+var toArray = utils.toArray;
+var pluck = utils.pluck;
 var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
-
-function toArray(arrayLike) {
-    return Array.prototype.slice.call(arrayLike, 0);
-}
-
-function mix(r, s) {
-    for (var p in s) {
-        r[p] = s[p];
-    }
-}
 
 function Component(state) {
     this.states = new Rx.BehaviorSubject(state);
@@ -47,11 +41,10 @@ mix(Component.prototype, {
                 var latestChildren = toArray(arguments);
 
                 // TODO: This is way too heavy.
-                // Has to be a better way (Object.create() maybe a little better),
-                // but ideally, something where we don't have to clone at all.
-                var copy = {};
-                mix(copy, component);
-
+                //
+                // We need something where we
+                // don't have to clone at all.
+                var copy = mix({}, component);
                 copy.children = latestChildren;
 
                 return copy;
@@ -77,8 +70,21 @@ mix(Component.prototype, {
 
     _subscribe: function() {
 
+        var self = this;
+
         if (!this.vdoms) {
-            this.vdoms = this.toVDOMS(this.states.map(this.render)).publish().refCount();
+            this.vdoms =
+                this.toVDOMS(
+                    this.states.
+                        distinctUntilChanged(
+                            pluck('state'),
+                            function(prev, next) {
+                                return (prev === next);
+                            }).
+                        map(this.render)
+                ).
+                publish().
+                refCount();
         }
 
         return this.vdoms.subscribe.apply(this.vdoms, arguments);
@@ -92,7 +98,7 @@ Component.create = function(componentName, proto) {
     var component = function(state) {
 
         var comp,
-            key = (state) && (state.guid + "-" + componentName);
+            key = (state) && (state.path.join(".") + "-" + componentName);
 
         if (key) {
             comp = Component._cache[key];
