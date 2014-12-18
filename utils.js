@@ -19,13 +19,32 @@ function eq(equalToVal) {
 
 function pluck(prop) {
     return function(val) {
-        return val[prop];
+        return val && val[prop];
     }
+}
+
+function cloneVirtualNode(vnode) {
+    var copy = {};
+
+    for (var p in vnode) {
+        if (vnode.hasOwnProperty(p)) {
+            copy[p] = vnode[p];
+        }
+    }
+
+    // These come from deeper down
+    // in the prototype chain
+    copy.constructor = vnode.constructor;
+    copy.type = vnode.type;
+    copy.version = vnode.version;
+
+    return copy;
 }
 
 module.exports = {
     eq: eq,
     pluck: pluck,
     mix: mix,
-    toArray: toArray
+    toArray: toArray,
+    cloneVirtualNode: cloneVirtualNode
 };

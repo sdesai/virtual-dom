@@ -52,27 +52,8 @@ var Root = Component.create("Root", {
 // ---- App Code ----
 
 var rootElem;
-
-var rootComponent = Root(
-
-    new Model({
-            count: 0,
-
-            a: {
-                text: "A:" + 0
-            },
-
-            b: {
-                text: "B:" + 0
-            }
-        },
-
-        function onModelChange(model) {
-            rootComponent.setState(model);
-        }
-    )
-
-);
+var rootComponent;
+var rootModel;
 
 function initialRender(VDOM) {
     var container = makeContainer();
@@ -89,29 +70,44 @@ function incrementalRender(VDOMPair) {
     rootElem = patch(rootElem, patches);
 }
 
-function updateState(model) {
+function updateRootModel() {
 
-    var count = model.get(["count"]);
+    var count = rootModel.get(["count"]);
     var newCount = count + 1;
 
-    model.set(["count"], newCount);
+    rootModel.set(["count"], newCount);
 
     if (newCount % 2) {
-        model.set(["a", "text"], "A:" + newCount);
+        rootModel.set(["a", "text"], "A:" + newCount);
     } else {
-        model.set(["b", "text"], "B:" + newCount);
+        rootModel.set(["b", "text"], "B:" + newCount);
     }
-
 }
+
+function updateRootComponent(model) {
+    rootComponent.setState(model);
+}
+
+rootModel = new Model({
+    count: 0,
+
+    a: {
+        text: "A:" + 0
+    },
+
+    b: {
+        text: "B:" + 0
+    }
+});
+
+rootComponent = Root(rootModel);
+
+rootModel.changes.sample(16).forEach(updateRootComponent);
 
 rootComponent.take(1).forEach(initialRender);
 rootComponent.pairwise().forEach(incrementalRender);
 
-enterKeyDowns.
-    map(function() {
-        return rootComponent.states.value;
-    }).
-    forEach(updateState);
+enterKeyDowns.forEach(updateRootModel);
 
 // --- Debug Info ---
 

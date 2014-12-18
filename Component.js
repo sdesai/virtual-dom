@@ -4,11 +4,16 @@ var utils = require("./utils");
 var mix = utils.mix;
 var toArray = utils.toArray;
 var pluck = utils.pluck;
+var cloneVirtualNode = utils.cloneVirtualNode;
+
 var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
 
-function Component(state) {
-    this.states = new Rx.BehaviorSubject(state);
+
+
+
+function Component(model) {
+    this.states = new Rx.BehaviorSubject(model);
     this.mounted = new Rx.BehaviorSubject(false);
 }
 
@@ -28,23 +33,25 @@ mix(Component.prototype, {
 
         var obs,
             children = component.children,
+            isVNode = Boolean(children),
+            isComponent = (component instanceof Observable),
             childObservables;
 
-        if (component instanceof Observable) {
+        if (isComponent) {
             obs = component.switchMap(toVDOMS);
 
-        } else if (children && children.length > 0) {
+        } else if (isVNode && children.length > 0) {
+
             childObservables = children.map(toVDOMS);
 
             childObservables.push(function() {
 
                 var latestChildren = toArray(arguments);
 
-                // TODO: This is way too heavy.
-                //
-                // We need something where we
-                // don't have to clone at all.
-                var copy = mix({}, component);
+                // TODO: Is this too heavy?
+                // Can we do something where we don't have to clone at all.
+
+                var copy = cloneVirtualNode(component);
                 copy.children = latestChildren;
 
                 return copy;
@@ -79,8 +86,13 @@ mix(Component.prototype, {
                         distinctUntilChanged(
                             pluck('state'),
                             function(prev, next) {
-                                return (prev === next);
-                            }).
+                                var same = (prev === next);
+                                // console.log(same);
+                                return same;
+                        }).
+                        doAction(function() {
+                            // console.log("Component State onNexted: " + self._key);
+                        }).
                         map(this.render)
                 ).
                 publish().
@@ -110,11 +122,15 @@ Component.create = function(componentName, proto) {
             } else {
                 Component.call(this, state);
 
+                comp = this;
+
                 if (key) {
-                    Component._cache[key] = this;
+                    Component._cache[key] = comp;
+
+                    // Temp. For Debugging/Logging
+                    comp._key = key;
                 }
 
-                comp = this;
             }
 
         } else {

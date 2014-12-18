@@ -7,19 +7,17 @@ function Model(state, onChange) {
     this.path = [];
 
     this.changes = new Rx.Subject();
-
-    if (onChange) {
-        this.changes.sample(16).forEach(onChange);
-    }
 }
 
 Model.prototype = {
 
     bind: function(path) {
-        var boundModel = Object.create(this);
 
-        boundModel.state = this.state.getIn(path);
-        boundModel.path = this.path.concat(path);
+        var boundModel = Object.create(this);
+        var boundPath = this.path.concat(path);
+
+        boundModel.state = this.root.state.getIn(boundPath);
+        boundModel.path = boundPath;
 
         return boundModel;
     },
@@ -29,7 +27,15 @@ Model.prototype = {
     },
 
     set: function(path, value) {
-        this.root.state = this.root.state.setIn(this.path.concat(path), value);
+
+        var path = this.path.concat(path);
+
+        this.root.state = this.root.state.setIn(path, value);
+
+        if (this !== this.root) {
+            this.state = this.root.state.getIn(path);
+        }
+
         this.changes.onNext(this);
     }
 };
