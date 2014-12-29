@@ -4,7 +4,7 @@ module.exports = AttributeHook;
 
 function AttributeHook(namespace, value) {
     if (!(this instanceof AttributeHook)) {
-        return new AttributeHook(value);
+        return new AttributeHook(namespace, value);
     }
 
     this.namespace = namespace;
