@@ -1,16 +1,13 @@
 var Rx = require('rx');
-var utils = require("./utils");
+var utils = require('./utils');
+var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook.js');
 
 var mix = utils.mix;
 var toArray = utils.toArray;
-var pluck = utils.pluck;
 var cloneVirtualNode = utils.cloneVirtualNode;
 
 var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
-
-
-
 
 function Component(model) {
     this.states = new Rx.BehaviorSubject(model);
@@ -26,6 +23,7 @@ mix(Component.prototype, {
     type: 'Widget',
 
     setState: function(state) {
+        console.log("Component setState(): " + this._cacheKey);
         this.states.onNext(state);
     },
 
@@ -68,11 +66,32 @@ mix(Component.prototype, {
     },
 
     mount: function() {
+        console.log("Mounted: " + this._cacheKey);
         this.mounted.onNext(true);
     },
 
-    unmount: function() {
-        this.mounted.onNext(false);
+    _unmount: function _unmount(vNode) {
+
+        var component;
+
+        if (vNode && "VirtualNode" === vNode.type) {
+
+            if (vNode.children && vNode.children.length > 0) {
+                vNode.children.forEach(_unmount);
+            }
+
+            component = vNode._component;
+
+            if (component) {
+                delete Component._cache[component._cacheKey];
+                console.log("Unmounted: " + component._cacheKey);
+                component.mounted.onNext(false);
+            }
+        }
+    },
+
+    unmount: function(vNode) {
+        this._unmount(vNode);
     },
 
     _subscribe: function() {
@@ -84,17 +103,21 @@ mix(Component.prototype, {
                 this.toVDOMS(
                     this.states.
                         distinctUntilChanged(
-                            pluck('state'),
+                            function(model) {
+                                return model.state;
+                            },
                             function(prev, next) {
                                 var same = (prev === next);
-                                // console.log(same);
+                                // console.log("Are 'states' distinct: " + !same);
                                 return same;
-                        }).
-                        doAction(function() {
-                            // console.log("Component State onNexted: " + self._key);
-                        }).
-                        map(this.render)
+                            }).
+                        map(this.render.bind(this))
                 ).
+                map(function(vdom) {
+                    // vdom.properties['data-cachekey'] = AttributeSetHook(null, self._cacheKey);
+                    vdom._component = self;
+                    return vdom;
+                }).
                 publish().
                 refCount();
         }
@@ -110,7 +133,7 @@ Component.create = function(componentName, proto) {
     var component = function(state) {
 
         var comp,
-            key = (state) && (state.path.join(".") + "-" + componentName);
+            key = (state) && (componentName + "-[" + state.path.join(".") + "]");
 
         if (key) {
             comp = Component._cache[key];
@@ -126,9 +149,7 @@ Component.create = function(componentName, proto) {
 
                 if (key) {
                     Component._cache[key] = comp;
-
-                    // Temp. For Debugging/Logging
-                    comp._key = key;
+                    comp._cacheKey = key;
                 }
 
             }

@@ -1,7 +1,7 @@
 var Immutable = require("immutable");
 var Rx = require("rx");
 
-function Model(state, onChange) {
+function Model(state) {
     this.root = this;
     this.state = Immutable.fromJS(state);
     this.path = [];
@@ -28,12 +28,12 @@ Model.prototype = {
 
     set: function(path, value) {
 
-        var path = this.path.concat(path);
+        var fullPath = this.path.concat(path);
 
-        this.root.state = this.root.state.setIn(path, value);
+        this.root.state = this.root.state.setIn(fullPath, value);
 
         if (this !== this.root) {
-            this.state = this.root.state.getIn(path);
+            this.state = this.root.state.getIn(fullPath);
         }
 
         this.changes.onNext(this);

@@ -27,16 +27,17 @@ function cloneVirtualNode(vnode) {
     var copy = {};
 
     for (var p in vnode) {
-        if (vnode.hasOwnProperty(p)) {
+        // if (vnode.hasOwnProperty(p)) {
             copy[p] = vnode[p];
-        }
+        // }
     }
 
     // These come from deeper down
-    // in the prototype chain
-    copy.constructor = vnode.constructor;
-    copy.type = vnode.type;
-    copy.version = vnode.version;
+    // in the prototype chain.
+
+    // copy.constructor = vnode.constructor;
+    // copy.type = vnode.type;
+    // copy.version = vnode.version;
 
     return copy;
 }
