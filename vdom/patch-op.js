@@ -45,6 +45,10 @@ function removeNode(domNode, vNode) {
         parentNode.removeChild(domNode)
     }
 
+    if (vNode._component) {
+        vNode._component.unmount(vNode);
+    }
+
     destroyWidget(domNode, vNode);
 
     return null
@@ -55,6 +59,10 @@ function insertNode(parentNode, vNode, renderOptions) {
 
     if (parentNode) {
         parentNode.appendChild(newNode)
+    }
+
+    if (vNode._component) {
+        vNode._component.mount(vNode, newNode);
     }
 
     return parentNode
