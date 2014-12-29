@@ -44,31 +44,31 @@ test("h is a function", function (assert) {
 
 test("defaults to div node", function (assert) {
     var node = h()
-    assertNode(assert, node, "div")
+    assertNode(assert, node, "DIV")
     assert.end()
 })
 
 test("can use class selector", function (assert) {
     var node = h("div.pretty")
-    assertNode(assert, node, "div", { className: "pretty" })
+    assertNode(assert, node, "DIV", { className: "pretty" })
     assert.end()
 })
 
 test("class selectors combine with className property", function (assert) {
     var node = h("div.very", { className: "pretty" })
-    assertNode(assert, node, "div", { className: "very pretty" })
+    assertNode(assert, node, "DIV", { className: "very pretty" })
     assert.end()
 })
 
 test("can use id selector", function (assert) {
     var node = h("div.pretty")
-    assertNode(assert, node, "div", { className: "pretty" })
+    assertNode(assert, node, "DIV", { className: "pretty" })
     assert.end()
 })
 
 test("properties id overrides selector id", function (assert) {
     var node = h("div#very", { id: "important" })
-    assertNode(assert, node, "div", { id: "important" })
+    assertNode(assert, node, "DIV", { id: "important" })
     assert.end()
 })
 
@@ -78,10 +78,10 @@ test("defaults to div when using selectors", function (assert) {
     var node3 = h("#important.pretty")
     var node4 = h(".pretty#important")
 
-    assertNode(assert, node1, "div", { id: "important" })
-    assertNode(assert, node2, "div", { className: "pretty" })
-    assertNode(assert, node3, "div", { id: "important", className: "pretty" })
-    assertNode(assert, node4, "div", { id: "important", className: "pretty" })
+    assertNode(assert, node1, "DIV", { id: "important" })
+    assertNode(assert, node2, "DIV", { className: "pretty" })
+    assertNode(assert, node3, "DIV", { id: "important", className: "pretty" })
+    assertNode(assert, node4, "DIV", { id: "important", className: "pretty" })
     assert.end()
 })
 
@@ -93,10 +93,10 @@ test("second argument can be children", function (assert) {
 
     var props = { id: "important", className: "pretty" }
 
-    assertNode(assert, node1, "div", props, ["test"])
-    assertNode(assert, node2, "div", props, ["test"])
-    assertNode(assert, node3, "div", props, [["p", {}, ["testing"]]])
-    assertNode(assert, node4, "div", props, [["p", {}, ["testing"]]])
+    assertNode(assert, node1, "DIV", props, ["test"])
+    assertNode(assert, node2, "DIV", props, ["test"])
+    assertNode(assert, node3, "DIV", props, [["P", {}, ["testing"]]])
+    assertNode(assert, node4, "DIV", props, [["P", {}, ["testing"]]])
     assert.end()
 })
 
@@ -108,10 +108,10 @@ test("third argument can be child or children", function (assert) {
 
     var props = { a: "b", id: "important", className: "pretty" }
 
-    assertNode(assert, node1, "div", props, ["test"])
-    assertNode(assert, node2, "div", props, ["test"])
-    assertNode(assert, node3, "div", props, [["p", {}, ["testing"]]])
-    assertNode(assert, node4, "div", props, [["p", {}, ["testing"]]])
+    assertNode(assert, node1, "DIV", props, ["test"])
+    assertNode(assert, node2, "DIV", props, ["test"])
+    assertNode(assert, node3, "DIV", props, [["P", {}, ["testing"]]])
+    assertNode(assert, node4, "DIV", props, [["P", {}, ["testing"]]])
     assert.end()
 })
 
@@ -271,9 +271,9 @@ test("injected document object is used", function (assert) {
     var count = 0
     var doc = {
         createElement: function createElement(tagName) {
-            assert.equal(tagName, "div")
+            assert.equal(tagName, "DIV")
             count++
-            return { tagName: "div", appendChild: function (t) {
+            return { tagName: "DIV", appendChild: function (t) {
                 assert.equal(t, "hello")
                 count++
             } }
@@ -444,6 +444,27 @@ test("Allow empty textnode", function (assert) {
     assert.end()
 })
 
+test("Can replace vnode with vtext", function (assert) {
+
+    var leftNode = h("div", h("div"))
+    var rightNode = h("div", "text")
+
+    var rootNode = render(leftNode)
+
+    assert.equal(rootNode.childNodes.length, 1)
+    assert.equal(rootNode.childNodes[0].nodeType, 1)
+
+    var patches = diff(leftNode, rightNode)
+
+    var newRoot = patch(rootNode, patches)
+
+    assert.equal(newRoot, rootNode)
+
+    assert.equal(newRoot.childNodes.length, 1)
+    assert.equal(newRoot.childNodes[0].nodeType, 3)
+
+    assert.end()
+})
 
 // Widget tests
 test("Widget is initialised on render", function (assert) {
@@ -616,6 +637,36 @@ test("Patch nested widgets", function (assert) {
     var expectedNode = render(rightTree)
     assert.equal(newRoot, domNode)
     assertEqualDom(assert, newRoot, expectedNode)
+    assert.end()
+})
+
+test("Can replace stateful widget with vnode", function (assert) {
+    var statefulWidget  = {
+        init: function () {
+            return render(h("div.widget"))
+        },
+        update: function () {},
+        destroy: function () {},
+        type: "Widget"
+    }
+
+    var leftNode = h("div", statefulWidget)
+    var rightNode = h("div", h("div.vnode"))
+
+    var rootNode = render(leftNode)
+
+    assert.equal(rootNode.childNodes.length, 1)
+    assert.equal(rootNode.childNodes[0].className, 'widget')
+
+    var patches = diff(leftNode, rightNode)
+
+    var newRoot = patch(rootNode, patches)
+
+    assert.equal(newRoot, rootNode)
+
+    assert.equal(newRoot.childNodes.length, 1)
+    assert.equal(newRoot.childNodes[0].className, 'vnode')
+
     assert.end()
 })
 

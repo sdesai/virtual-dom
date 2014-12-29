@@ -1,5 +1,5 @@
 var test = require("tape")
-var DataSet = require("data-set")
+var EvStore = require('ev-store')
 
 var h = require("../index")
 
@@ -9,8 +9,19 @@ test("h is a function", function (assert) {
 })
 
 test("h returns a vnode", function (assert) {
-    assert.equal(h("div").tagName, "div")
+    assert.equal(h("div").tagName, "DIV")
 
+    assert.end()
+})
+
+test("h defaults tagName to uppercase", function (assert) {
+    assert.equal(h("").tagName, "DIV")
+    assert.equal(h("div").tagName, "DIV")
+    assert.end()
+})
+
+test("h preserves tagName case if namespace is given", function (assert) {
+    assert.equal(h("test", { namespace: "http://www.w3.org/XML/1998/namespace" }).tagName, "test")
     assert.end()
 })
 
@@ -38,18 +49,6 @@ test("h with key", function (assert) {
     assert.end()
 })
 
-test("h with data-", function (assert) {
-    var node = h("div", { "data-foo": "bar" })
-
-    assert.ok(node.properties["data-foo"])
-
-    var hook = node.properties["data-foo"]
-    var elem = {}
-    hook.hook(elem, "data-foo")
-    assert.equal(DataSet(elem).foo, "bar")
-
-    assert.end()
-})
 
 test("h with ev-", function (assert) {
     var node = h("div", { "ev-foo": "bar" })
@@ -59,7 +58,7 @@ test("h with ev-", function (assert) {
     var hook = node.properties["ev-foo"]
     var elem = {}
     hook.hook(elem, "ev-foo")
-    assert.equal(DataSet(elem).foo, "bar")
+    assert.equal(EvStore(elem).foo, "bar")
 
     assert.end()
 })
@@ -79,7 +78,7 @@ test("input.value soft hook", function (assert) {
 test("h with child", function (assert) {
     var node = h("div", h("span"))
 
-    assert.equal(node.children[0].tagName, "span")
+    assert.equal(node.children[0].tagName, "SPAN")
 
     assert.end()
 })
@@ -87,7 +86,7 @@ test("h with child", function (assert) {
 test("h with children", function (assert) {
     var node = h("div", [h("span")])
 
-    assert.equal(node.children[0].tagName, "span")
+    assert.equal(node.children[0].tagName, "SPAN")
 
     assert.end()
 })
@@ -113,12 +112,27 @@ test("h with undefined", function (assert) {
 })
 
 test("h with foreign object", function (assert) {
-    assert.throws(function () {
+    var errorSingleChild
+
+    try {
         h("div", null, { foreign: "object" })
-    }, /Unexpected virtual child/)
-    assert.throws(function () {
+    } catch (e) {
+        errorSingleChild = e
+    }
+
+    var errorChildren
+
+    try {
         h("div", [{ foreign: "object" }])
-    }, /Unexpected virtual child/)
+    } catch (e) {
+        errorChildren = e
+    }
+
+    assert.ok(errorSingleChild);
+    assert.ok(/Unexpected virtual child/.test(errorSingleChild.message))
+
+    assert.ok(errorChildren);
+    assert.ok(/Unexpected virtual child/.test(errorChildren.message))
 
     assert.end()
 })
@@ -142,7 +156,7 @@ test("h with id", function (assert) {
 test("h with empty string", function (assert) {
     var node = h("")
 
-    assert.equal(node.tagName, "div")
+    assert.equal(node.tagName, "DIV")
 
     assert.end()
 })
