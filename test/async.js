@@ -5,6 +5,7 @@ var diff = require('../diff');
 var patch = require('../patch');
 var create = require('../create-element');
 var utils = require('../utils');
+var log = utils.log;
 
 var Component = require('../Component');
 var Model = require('../Model');
@@ -17,50 +18,62 @@ function logDiff(pair) {
     var oldVDOMChildren = pair[0].children;
     var newVDOMChildren = pair[1].children;
 
-    console.log('Root vdoms pair onNexted (OLD): ' + oldVDOMChildren[0].children[0].text + ',' + oldVDOMChildren[1].children[0].text + ',' + oldVDOMChildren[2].children[0].text);
-    console.log('Root vdoms pair onNextd (NEW): ' + newVDOMChildren[0].children[0].text + ',' + newVDOMChildren[1].children[0].text + ',' + newVDOMChildren[2].children[0].text);
+    log('Root vdoms pair onNexted (OLD): ' + oldVDOMChildren[0].children[0].text);
+    log('Root vdoms pair onNextd (NEW): ' + newVDOMChildren[0].children[0].text);
 }
 
 // ---- Custom Components ----
 
 var Label = Component.create('Label', {
 
-    render: function renderLabel(model) {
+    render: function(model) {
 
+        var vdom = elem('div', {
+
+            key: this._cacheKey,
+
+            style: {
+                backgroundColor: '#eee',
+                margin: '2px',
+                padding: '2px',
+                display: 'inline-block'
+            }
+
+        }, this.renderChildren(model));
+
+        return vdom;
+    },
+
+    renderChildren: function(model) {
         var children = [];
 
         if (model.get('prefix')) {
             children.push(Label(model.bind('prefix')));
         }
+
         children.push(String(model.get('text')));
 
-        var vdom = elem('div', {
-            key: this._cacheKey,
-            style: { backgroundColor: '#eee', margin: '2px', padding: '5px', display: 'inline-block' }
-        }, children);
-
-        return vdom;
+        return children;
     }
 
 });
 
 var Root = Component.create('Root', {
 
-    render: function renderRoot(model) {
+    render: function(model) {
+        var vdom = elem('div', null, this.renderChildren(model));
+        return vdom;
+    },
+
+    renderChildren: function(model) {
 
         var count = model.get('count');
+        var countText = elem('span', { style: {color: '#fff', paddingRight: '5px'} }, ['Count: ' + count]);
 
-        var vdom = elem('div', {
-            key: this._cacheKey,
-        }, [
-                elem('span', { style: {color: '#fff', paddingRight: '5px'} }, ['Count: ' + count]),
-
-                (count % 2) ?
-                    Label(model.bind('a')) :
-                    Label(model.bind('b'))
-        ]);
-
-        return vdom;
+        return [
+            countText,
+            (count % 2) ? Label(model.bind('a')) : Label(model.bind('b'))
+        ];
     }
 
 });
@@ -82,7 +95,7 @@ function incrementalRender(VDOMPair) {
     var oldVDOM = VDOMPair[0];
     var newVDOM = VDOMPair[1];
 
-    // logDiff(VDOMPair);
+    logDiff(VDOMPair);
 
     var patches = diff(oldVDOM, newVDOM);
     rootElem = patch(rootElem, patches);
@@ -90,26 +103,18 @@ function incrementalRender(VDOMPair) {
 
 function updateRootModel() {
 
-    var count = rootModel.get(['count']);
-    var newCount = count + 1;
+    var count = rootModel.get(['count']) + 1,
+        path = (count % 2) ? 'a' : 'b';
 
-    console.log('model.set(root)');
+    log('model.set(root, count)');
+    log('model.set(' + path + ', text)');
 
-    rootModel.set(['count'], newCount);
-
-    if (newCount % 2) {
-        console.log('model.set(a)');
-
-        rootModel.set(['a', 'text'], 'A:' + newCount);
-    } else {
-        console.log('model.set(b)');
-
-        rootModel.set(['b', 'text'], 'B:' + newCount);
-    }
+    rootModel.set('count', count);
+    rootModel.set([path, 'text'], count);
 }
 
 function updateRootComponent(model) {
-    console.log('Model "changes" onNexted');
+    log('Model "changes" onNexted');
 
     rootComponent.setState(model);
 }
@@ -119,18 +124,18 @@ rootModel = new Model({
     count: 0,
 
     a: {
-        text: 'A:' + 0,
+        text: 0,
 
         prefix: {
-            text: 'Foo - '
+            text: 'A:'
         }
     },
 
     b: {
-        text: 'B:' + 0,
+        text: 0,
 
         prefix: {
-            text: 'Bar - '
+            text: 'B:'
         }
     }
 });

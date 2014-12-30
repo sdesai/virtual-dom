@@ -2,8 +2,9 @@ var Rx = require('rx');
 var utils = require('./utils');
 // var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook.js');
 
-var mix = utils.mix;
 var toArray = utils.toArray;
+var log = utils.log;
+var extend = utils.extend;
 var cloneVirtualNode = utils.cloneVirtualNode;
 
 var Observable = Rx.Observable;
@@ -11,19 +12,31 @@ var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.
 
 function Component(model) {
     this.states = new Rx.BehaviorSubject(model);
-    this.mounted = new Rx.BehaviorSubject(false);
+    this.mounted = new Rx.BehaviorSubject({mounted:false});
+
+    var self = this;
+    this.mounted.subscribe(function(o){
+
+        var component = o.vNode && o.vNode._component,
+            cacheKey = component && component._cacheKey;
+
+        if (cacheKey) {
+            if (o.mounted) {
+                log("Mounted: " + cacheKey);
+            } else {
+                log("Unmounted: " + cacheKey);
+            }
+        }
+
+    });
 }
 
-Component.prototype = Object.create(Observable.prototype);
-
-mix(Component.prototype, {
-
-    constructor: Component,
+extend(Component, Observable, {
 
     type: 'Widget',
 
     setState: function(state) {
-        console.log('Component setState(): ' + this._cacheKey);
+        log('Component setState(): ' + this._cacheKey);
         this.states.onNext(state);
     },
 
@@ -65,33 +78,46 @@ mix(Component.prototype, {
         return obs;
     },
 
-    mount: function() {
-        console.log('Mounted: ' + this._cacheKey);
-        this.mounted.onNext(true);
-    },
+    mount: function(vNode) {
 
-    _unmount: function _unmount(vNode) {
+        this._mount(vNode);
 
-        var component;
-
-        if (vNode && 'VirtualNode' === vNode.type) {
-
-            if (vNode.children && vNode.children.length > 0) {
-                vNode.children.forEach(_unmount);
-            }
-
-            component = vNode._component;
-
-            if (component) {
-                delete Component._cache[component._cacheKey];
-                console.log('Unmounted: ' + component._cacheKey);
-                component.mounted.onNext(false);
-            }
+        if (vNode.children && vNode.children.length > 0) {
+            vNode.children.forEach(function(childVNode) {
+                if (childVNode._component) {
+                    childVNode._component.mount(childVNode);
+                }
+            });
         }
     },
 
     unmount: function(vNode) {
+
         this._unmount(vNode);
+
+        if (vNode.children && vNode.children.length > 0) {
+            vNode.children.forEach(function(childVNode) {
+                if (childVNode._component) {
+                    childVNode._component.unmount(childVNode);
+                }
+            });
+        }
+    },
+
+    _mount: function(vNode) {
+        this.mounted.onNext({
+            mounted: true,
+            vNode: vNode
+        });
+    },
+
+    _unmount: function(vNode) {
+        delete Component._cache[this._cacheKey];
+
+        this.mounted.onNext({
+            mounted: false,
+            vNode: vNode
+        });
     },
 
     _subscribe: function() {
@@ -108,11 +134,13 @@ mix(Component.prototype, {
                             },
                             function(prev, next) {
                                 var same = (prev === next);
-                                // console.log('Are 'states' distinct: ' + !same);
+
+                                log('Are "states" distinct: ' + !same);
+
                                 return same;
                             }).
                         doAction(function() {
-                            console.log('Rendering: ' + self._cacheKey)
+                            log('Rendering: ' + self._cacheKey)
                         }).
                         map(this.render.bind(this))
                 ).
@@ -164,14 +192,8 @@ Component.create = function(componentName, proto) {
         return comp;
     };
 
-    component.prototype = Object.create(Component.prototype);
-
-    mix(component.prototype, {
-        constructor: component,
-        name: componentName
-    });
-
-    mix(component.prototype, proto);
+    extend(component, Component, proto);
+    component.prototype.name = componentName;
 
     return component;
 }
