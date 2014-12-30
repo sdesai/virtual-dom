@@ -1,6 +1,6 @@
 var Rx = require('rx');
 var utils = require('./utils');
-var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook.js');
+// var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook.js');
 
 var mix = utils.mix;
 var toArray = utils.toArray;
@@ -23,7 +23,7 @@ mix(Component.prototype, {
     type: 'Widget',
 
     setState: function(state) {
-        console.log("Component setState(): " + this._cacheKey);
+        console.log('Component setState(): ' + this._cacheKey);
         this.states.onNext(state);
     },
 
@@ -66,7 +66,7 @@ mix(Component.prototype, {
     },
 
     mount: function() {
-        console.log("Mounted: " + this._cacheKey);
+        console.log('Mounted: ' + this._cacheKey);
         this.mounted.onNext(true);
     },
 
@@ -74,7 +74,7 @@ mix(Component.prototype, {
 
         var component;
 
-        if (vNode && "VirtualNode" === vNode.type) {
+        if (vNode && 'VirtualNode' === vNode.type) {
 
             if (vNode.children && vNode.children.length > 0) {
                 vNode.children.forEach(_unmount);
@@ -84,7 +84,7 @@ mix(Component.prototype, {
 
             if (component) {
                 delete Component._cache[component._cacheKey];
-                console.log("Unmounted: " + component._cacheKey);
+                console.log('Unmounted: ' + component._cacheKey);
                 component.mounted.onNext(false);
             }
         }
@@ -108,9 +108,12 @@ mix(Component.prototype, {
                             },
                             function(prev, next) {
                                 var same = (prev === next);
-                                // console.log("Are 'states' distinct: " + !same);
+                                // console.log('Are 'states' distinct: ' + !same);
                                 return same;
                             }).
+                        doAction(function() {
+                            console.log('Rendering: ' + self._cacheKey)
+                        }).
                         map(this.render.bind(this))
                 ).
                 map(function(vdom) {
@@ -133,7 +136,7 @@ Component.create = function(componentName, proto) {
     var component = function(state) {
 
         var comp,
-            key = (state) && (componentName + "-[" + state.path.join(".") + "]");
+            key = (state) && (componentName + '-[' + state.path.join('.') + ']');
 
         if (key) {
             comp = Component._cache[key];

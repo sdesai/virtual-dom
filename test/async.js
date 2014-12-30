@@ -9,50 +9,51 @@ var utils = require('../utils');
 var Component = require('../Component');
 var Model = require('../Model');
 
-var enterKeyDowns = Rx.Observable.fromEvent(document.body, "keydown").
-    pluck("keyCode").
+var enterKeyDowns = Rx.Observable.fromEvent(document.body, 'keydown').
+    pluck('keyCode').
     where(utils.eq(13));
 
 function logDiff(pair) {
     var oldVDOMChildren = pair[0].children;
     var newVDOMChildren = pair[1].children;
 
-    console.log("Root 'vdoms' pair onNext'ed (OLD): " + oldVDOMChildren[0].children[0].text + "," + oldVDOMChildren[1].children[0].text + "," + oldVDOMChildren[2].children[0].text);
-    console.log("Root 'vdoms' pair onNext'ed (NEW): " + newVDOMChildren[0].children[0].text + "," + newVDOMChildren[1].children[0].text + "," + newVDOMChildren[2].children[0].text);
+    console.log('Root vdoms pair onNexted (OLD): ' + oldVDOMChildren[0].children[0].text + ',' + oldVDOMChildren[1].children[0].text + ',' + oldVDOMChildren[2].children[0].text);
+    console.log('Root vdoms pair onNextd (NEW): ' + newVDOMChildren[0].children[0].text + ',' + newVDOMChildren[1].children[0].text + ',' + newVDOMChildren[2].children[0].text);
 }
 
 // ---- Custom Components ----
 
-var Label = Component.create("Label", {
+var Label = Component.create('Label', {
 
     render: function renderLabel(model) {
 
-        var text = model.get(["text"]);
+        var children = [];
 
-        console.log("Render: " + this._cacheKey);
+        if (model.get('prefix')) {
+            children.push(Label(model.bind('prefix')));
+        }
+        children.push(String(model.get('text')));
 
         var vdom = elem('div', {
             key: this._cacheKey,
-            style: { backgroundColor: "#eee", margin: "2px", padding: "5px", display: "inline-block" }
-        }, String(text));
+            style: { backgroundColor: '#eee', margin: '2px', padding: '5px', display: 'inline-block' }
+        }, children);
 
         return vdom;
     }
 
 });
 
-var Root = Component.create("Root", {
+var Root = Component.create('Root', {
 
     render: function renderRoot(model) {
 
-        var count = model.get(['count']);
-
-        console.log("Render: " + this._cacheKey);
+        var count = model.get('count');
 
         var vdom = elem('div', {
             key: this._cacheKey,
         }, [
-                elem("span", { style: {color: "#fff", paddingRight: "5px"} }, ["Count: " + count]),
+                elem('span', { style: {color: '#fff', paddingRight: '5px'} }, ['Count: ' + count]),
 
                 (count % 2) ?
                     Label(model.bind('a')) :
@@ -89,26 +90,26 @@ function incrementalRender(VDOMPair) {
 
 function updateRootModel() {
 
-    var count = rootModel.get(["count"]);
+    var count = rootModel.get(['count']);
     var newCount = count + 1;
 
-    console.log("model.set(root)");
+    console.log('model.set(root)');
 
-    rootModel.set(["count"], newCount);
+    rootModel.set(['count'], newCount);
 
     if (newCount % 2) {
-        console.log("model.set(a)");
+        console.log('model.set(a)');
 
-        rootModel.set(["a", "text"], "A:" + newCount);
+        rootModel.set(['a', 'text'], 'A:' + newCount);
     } else {
-        console.log("model.set(b)");
+        console.log('model.set(b)');
 
-        rootModel.set(["b", "text"], "B:" + newCount);
+        rootModel.set(['b', 'text'], 'B:' + newCount);
     }
 }
 
 function updateRootComponent(model) {
-    console.log("Model 'changes' onNext'ed");
+    console.log('Model "changes" onNexted');
 
     rootComponent.setState(model);
 }
@@ -118,11 +119,19 @@ rootModel = new Model({
     count: 0,
 
     a: {
-        text: "A:" + 0
+        text: 'A:' + 0,
+
+        prefix: {
+            text: 'Foo - '
+        }
     },
 
     b: {
-        text: "B:" + 0
+        text: 'B:' + 0,
+
+        prefix: {
+            text: 'Bar - '
+        }
     }
 });
 
@@ -150,12 +159,12 @@ enterKeyDowns.
 
 function makeContainer() {
 
-    var container = document.createElement("div");
+    var container = document.createElement('div');
 
-    container.id = "container";
-    container.style.backgroundColor = "#666";
-    container.style.padding = "4px";
-    container.style.display = "inline-block";
+    container.id = 'container';
+    container.style.backgroundColor = '#666';
+    container.style.padding = '4px';
+    container.style.display = 'inline-block';
 
     document.body.appendChild(container);
 

@@ -1,5 +1,5 @@
-var Immutable = require("immutable");
-var Rx = require("rx");
+var Immutable = require('immutable');
+var Rx = require('rx');
 
 function Model(state) {
     this.root = this;
@@ -23,6 +23,11 @@ Model.prototype = {
     },
 
     get: function(path) {
+
+        if (!(path instanceof Array)) {
+            path = [path];
+        }
+
         return this.state.getIn(path);
     },
 
