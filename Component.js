@@ -1,6 +1,6 @@
 var Rx = require('rx');
 var utils = require('./utils');
-// var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook.js');
+var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook.js');
 
 var toArray = utils.toArray;
 var log = utils.log;
@@ -11,12 +11,12 @@ var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
 
 function Component(model) {
+
     this.states = new Rx.BehaviorSubject(model);
     this.mounted = new Rx.BehaviorSubject({mounted:false});
 
-    var self = this;
-    this.mounted.subscribe(function(o){
-
+    // DEBUG
+    this.mounted.subscribe(function(o) {
         var component = o.vNode && o.vNode._component,
             cacheKey = component && component._cacheKey;
 
@@ -27,33 +27,44 @@ function Component(model) {
                 log("Unmounted: " + cacheKey);
             }
         }
-
     });
 }
 
 extend(Component, Observable, {
 
-    type: 'Widget',
+    type: 'Thunk',
 
     setState: function(state) {
         log('Component setState(): ' + this._cacheKey);
         this.states.onNext(state);
     },
 
-    toVDOMS: function toVDOMS(component) {
+    toVDOMS: function toVDOMS(component, path) {
 
         var obs,
             children = component.children,
             isVNode = Boolean(children),
-            isComponent = (component instanceof Observable),
             childObservables;
 
-        if (isComponent) {
-            obs = component.switchMap(toVDOMS);
+        path = path || [];
+
+        if (component instanceof ComponentDescriptor) {
+            return component.toComponent(path);
+
+        } else if (component instanceof Component) {
+            return component;
+
+        } else if (component instanceof Observable) {
+
+            obs = component.switchMap(function(comp) {
+                return toVDOMS(comp, path);
+            });
 
         } else if (isVNode && children.length > 0) {
 
-            childObservables = children.map(toVDOMS);
+            childObservables = children.map(function(val, index) {
+                return toVDOMS(val, path.concat(index));
+            });
 
             childObservables.push(function() {
 
@@ -128,7 +139,7 @@ extend(Component, Observable, {
             this.vdoms =
                 this.toVDOMS(
                     this.states.
-                        distinctUntilChanged(
+                            distinctUntilChanged(
                             function(model) {
                                 return model.state;
                             },
@@ -139,15 +150,12 @@ extend(Component, Observable, {
 
                                 return same;
                             }).
-                        doAction(function() {
-                            log('Rendering: ' + self._cacheKey)
-                        }).
-                        map(this.render.bind(this))
+                        map(this.render.bind(this)),
+                        this._path
                 ).
-                map(function(vdom) {
-                    // vdom.properties['data-cachekey'] = AttributeSetHook(null, self._cacheKey);
+                doAction(function(vdom) {
+                    vdom.properties['data-cachekey'] = AttributeSetHook(null, self._cacheKey);
                     vdom._component = self;
-                    return vdom;
                 }).
                 publish().
                 refCount();
@@ -157,46 +165,54 @@ extend(Component, Observable, {
     }
 });
 
+Component._guid = 0;
 Component._cache = {};
 
-Component.create = function(componentName, proto) {
-
-    var component = function(state) {
-
-        var comp,
-            key = (state) && (componentName + '-[' + state.path.join('.') + ']');
-
-        if (key) {
-            comp = Component._cache[key];
-        }
-
-        if (!comp) {
-            if (!(this instanceof component)) {
-                comp = new component(state);
-            } else {
-                Component.call(this, state);
-
-                comp = this;
-
-                if (key) {
-                    Component._cache[key] = comp;
-                    comp._cacheKey = key;
-                }
-
-            }
-
-        } else {
-            comp.setState(state);
-        }
-
-        return comp;
-    };
-
-    extend(component, Component, proto);
-    component.prototype.name = componentName;
-
-    return component;
+function ComponentDescriptor(componentConstructor, state) {
+    this.state = state;
+    this.componentConstructor = componentConstructor;
+    this.type = 'Thunk';
 }
 
+ComponentDescriptor.prototype.toComponent = function(path) {
+
+    var componentConstructor = this.componentConstructor,
+        state = this.state,
+        component,
+        cacheKey;
+
+    if (path) {
+        cacheKey = JSON.stringify(path) + "-" + componentConstructor.prototype.__name + ":" + componentConstructor.guid;
+        component = Component._cache[cacheKey];
+    }
+
+    if (component) {
+        component.setState(state);
+    } else {
+        component = new componentConstructor(state);
+        component._cacheKey = cacheKey;
+        component._path = path;
+
+        Component._cache[cacheKey] = component;
+    }
+
+    return component;
+};
+
+Component.create = function(name, proto) {
+
+    var guid = Component._guid++;
+
+    var componentConstructor = extend(function(state) {
+        Component.call(this, state);
+    }, Component, proto);
+
+    componentConstructor.guid = guid;
+    componentConstructor.prototype.__name = name;
+
+    return function(state) {
+        return new ComponentDescriptor(componentConstructor, state);
+    };
+}
 
 module.exports = Component;

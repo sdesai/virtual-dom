@@ -28,6 +28,8 @@ var Label = Component.create('Label', {
 
     render: function(model) {
 
+        log('Rendering: ' + this._cacheKey);
+
         var vdom = elem('div', {
 
             key: this._cacheKey,
@@ -61,6 +63,9 @@ var Label = Component.create('Label', {
 var Root = Component.create('Root', {
 
     render: function(model) {
+
+        log('Rendering: ' + this._cacheKey);
+
         var vdom = elem('div', null, this.renderChildren(model));
         return vdom;
     },
@@ -72,7 +77,7 @@ var Root = Component.create('Root', {
 
         return [
             countText,
-            (count % 2) ? Label(model.bind('a')) : Label(model.bind('b'))
+            (count % 2) ? Label(model.bind('a')), Label(model.bind('b'))
         ];
     }
 
@@ -140,7 +145,7 @@ rootModel = new Model({
     }
 });
 
-rootComponent = Root(rootModel);
+rootComponent = Root(rootModel).toComponent();
 
 rootModel.
     changes.
