@@ -39,7 +39,7 @@ extend(Component, Observable, {
         this.states.onNext(state);
     },
 
-    toVDOMS: function toVDOMS(component, path) {
+    toVDOM: function toVDOM(component, path) {
 
         var obs,
             children = component.children,
@@ -57,26 +57,42 @@ extend(Component, Observable, {
         } else if (component instanceof Observable) {
 
             obs = component.switchMap(function(comp) {
-                return toVDOMS(comp, path);
+                return toVDOM(comp, path);
             });
 
         } else if (isVNode && children.length > 0) {
 
             childObservables = children.map(function(val, index) {
-                return toVDOMS(val, path.concat(index));
+                return toVDOM(val, path.concat(index));
             });
 
             childObservables.push(function() {
 
-                var latestChildren = toArray(arguments);
+                var latestChildren = toArray(arguments),
+                    latestChild,
+                    countWithDescendents,
+                    count,
+                    childIdx,
+                    clone;
 
                 // TODO: Is this too heavy?
-                // Can we do something where we don't have to clone at all.
+                clone = cloneVirtualNode(component);
+                clone.children = latestChildren;
 
-                var copy = cloneVirtualNode(component);
-                copy.children = latestChildren;
+                count = latestChildren.length;
+                countWithDescendents = count;
 
-                return copy;
+                for (childIdx = 0; childIdx < count; childIdx++) {
+                    latestChild = latestChildren[childIdx];
+
+                    if ('count' in latestChild) {
+                        countWithDescendents = countWithDescendents + latestChild.count;
+                    }
+                }
+
+                clone.count = countWithDescendents;
+
+                return clone;
             });
 
             obs = Observable.combineLatest.apply(Observable, childObservables);
@@ -137,9 +153,9 @@ extend(Component, Observable, {
 
         if (!this.vdoms) {
             this.vdoms =
-                this.toVDOMS(
+                this.toVDOM(
                     this.states.
-                            distinctUntilChanged(
+                        distinctUntilChanged(
                             function(model) {
                                 return model.state;
                             },
@@ -181,10 +197,10 @@ ComponentDescriptor.prototype.toComponent = function(path) {
         component,
         cacheKey;
 
-    if (path) {
-        cacheKey = JSON.stringify(path) + "-" + componentConstructor.prototype.__name + ":" + componentConstructor.guid;
-        component = Component._cache[cacheKey];
-    }
+    path = path || [];
+
+    cacheKey = JSON.stringify(path) + "-" + componentConstructor.prototype.__name + ":type" + componentConstructor.guid;
+    component = Component._cache[cacheKey];
 
     if (component) {
         component.setState(state);

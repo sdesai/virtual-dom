@@ -32,7 +32,7 @@ var Label = Component.create('Label', {
 
         var vdom = elem('div', {
 
-            key: this._cacheKey,
+            key: model.get('key'),
 
             style: {
                 backgroundColor: '#eee',
@@ -77,7 +77,7 @@ var Root = Component.create('Root', {
 
         return [
             countText,
-            (count % 2) ? Label(model.bind('a')), Label(model.bind('b'))
+            (count % 2) ? Label(model.bind('a')) : Label(model.bind('b'))
         ];
     }
 
@@ -130,7 +130,7 @@ rootModel = new Model({
 
     a: {
         text: 0,
-
+        key: 'a',
         prefix: {
             text: 'A:'
         }
@@ -138,7 +138,7 @@ rootModel = new Model({
 
     b: {
         text: 0,
-
+        key: 'b',
         prefix: {
             text: 'B:'
         }
