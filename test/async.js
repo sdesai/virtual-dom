@@ -1,18 +1,14 @@
 var Rx = require('rx-dom/dist/rx.dom.js'); // For requestAnimationFrame scheduler
+var Observable = Rx.Observable;
+var log = require('../utils').log;
 
 var elem = require('../h');
 var diff = require('../diff');
 var patch = require('../patch');
 var create = require('../create-element');
-var utils = require('../utils');
-var log = utils.log;
 
 var Component = require('../Component');
 var Model = require('../Model');
-
-var enterKeyDowns = Rx.Observable.fromEvent(document.body, 'keydown').
-    pluck('keyCode').
-    where(utils.eq(13));
 
 function logDiff(pair) {
     var oldVDOMChildren = pair[0].children;
@@ -26,14 +22,12 @@ function logDiff(pair) {
 
 var Label = Component.create('Label', {
 
-    render: function(model) {
+    render: function(state) {
 
         log('Rendering: ' + this._cacheKey);
 
         var vdom = elem('div', {
-
-            key: model.get('key'),
-
+            key: state.get('key'),
             style: {
                 backgroundColor: '#eee',
                 margin: '2px',
@@ -41,19 +35,19 @@ var Label = Component.create('Label', {
                 display: 'inline-block'
             }
 
-        }, this.renderChildren(model));
+        }, this.renderChildren(state));
 
         return vdom;
     },
 
-    renderChildren: function(model) {
+    renderChildren: function(state) {
         var children = [];
 
-        if (model.get('prefix')) {
-            children.push(Label(model.bind('prefix')));
+        if (state.get('prefix')) {
+            children.push(Label(state.bind('prefix')));
         }
 
-        children.push(String(model.get('text')));
+        children.push(String(state.get('text')));
 
         return children;
     }
@@ -62,23 +56,50 @@ var Label = Component.create('Label', {
 
 var Root = Component.create('Root', {
 
-    render: function(model) {
+    render: function(state) {
 
         log('Rendering: ' + this._cacheKey);
 
-        var vdom = elem('div', null, this.renderChildren(model));
+        var vdom = elem('div', {
+            'onclick': this.eventHandler(state)
+        }, this.renderChildren(state));
+
         return vdom;
     },
 
-    renderChildren: function(model) {
+    renderChildren: function(state) {
 
-        var count = model.get('count');
-        var countText = elem('span', { style: {color: '#fff', paddingRight: '5px'} }, ['Count: ' + count]);
+        var count = state.get('count');
+
+        var countText = elem('span', {
+            style: {
+                color: '#fff',
+                paddingRight: '5px'
+            }
+        }, ['Count: ' + count]);
 
         return [
             countText,
-            (count % 2) ? Label(model.bind('a')) : Label(model.bind('b'))
+            (count % 2) ? Label(state.bind('a')) : Label(state.bind('b'))
         ];
+    },
+
+    bindEvents: function() {
+        this.events.pluck('state').subscribe(this.click);
+    },
+
+    click: function(state) {
+
+        var count = state.get(['count']) + 1,
+            path = (count % 2) ? 'a' : 'b';
+
+        log('state.set(root, count)');
+        log('state.set(' + path + ', text)');
+
+        state.set('count', count);
+        state.set([path, 'text'], count);
+
+        return state;
     }
 
 });
@@ -106,22 +127,8 @@ function incrementalRender(VDOMPair) {
     rootElem = patch(rootElem, patches);
 }
 
-function updateRootModel() {
-
-    var count = rootModel.get(['count']) + 1,
-        path = (count % 2) ? 'a' : 'b';
-
-    log('model.set(root, count)');
-    log('model.set(' + path + ', text)');
-
-    rootModel.set('count', count);
-    rootModel.set([path, 'text'], count);
-}
-
-function updateRootComponent(model) {
-    log('Model "changes" onNexted');
-
-    rootComponent.setState(model);
+function updateRootComponent(state) {
+    rootComponent.setState(state);
 }
 
 rootModel = new Model({
@@ -149,7 +156,7 @@ rootComponent = Root(rootModel).toComponent();
 
 rootModel.
     changes.
-    sample(16, Rx.Scheduler.requestAnimationFrame).
+    sample(0, Rx.Scheduler.requestAnimationFrame).
     forEach(updateRootComponent);
 
 rootComponent.
@@ -157,12 +164,9 @@ rootComponent.
     forEach(initialRender);
 
 rootComponent.
-    sample(16, Rx.Scheduler.requestAnimationFrame).
+    sample(0, Rx.Scheduler.requestAnimationFrame).
     pairwise().
     forEach(incrementalRender);
-
-enterKeyDowns.
-    forEach(updateRootModel);
 
 
 // ---------- DOM Fluff ----------

@@ -1,6 +1,7 @@
 var Rx = require('rx');
 var utils = require('./utils');
-var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook.js');
+var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook');
+var EventHook = require('./EventHook');
 
 var toArray = utils.toArray;
 var log = utils.log;
@@ -10,12 +11,17 @@ var cloneVirtualNode = utils.cloneVirtualNode;
 var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
 
-function Component(model) {
+function Component(state) {
 
-    this.states = new Rx.BehaviorSubject(model);
+    this.states = new Rx.BehaviorSubject(state);
+    this.events = new Rx.Subject();
+
     this.mounted = new Rx.BehaviorSubject({mounted:false});
 
+    this.bindEvents();
+
     // DEBUG
+    /*
     this.mounted.subscribe(function(o) {
         var component = o.vNode && o.vNode._component,
             cacheKey = component && component._cacheKey;
@@ -28,6 +34,7 @@ function Component(model) {
             }
         }
     });
+    */
 }
 
 extend(Component, Observable, {
@@ -39,6 +46,24 @@ extend(Component, Observable, {
         this.states.onNext(state);
     },
 
+    eventHandler: function(state) {
+
+        var self = this;
+
+        if (!this._boundHandler) {
+            this._boundHandler = function(state, e) {
+                self.events.onNext({
+                    e: e,
+                    state: state
+                });
+            };
+        }
+
+        return EventHook(this._boundHandler, state);
+    },
+
+    bindEvents: function() {},
+
     toVDOM: function toVDOM(component, path) {
 
         var obs,
@@ -49,13 +74,12 @@ extend(Component, Observable, {
         path = path || [];
 
         if (component instanceof ComponentDescriptor) {
-            return component.toComponent(path);
+            obs = component.toComponent(path);
 
         } else if (component instanceof Component) {
-            return component;
+            obs = component;
 
         } else if (component instanceof Observable) {
-
             obs = component.switchMap(function(comp) {
                 return toVDOM(comp, path);
             });
@@ -156,15 +180,11 @@ extend(Component, Observable, {
                 this.toVDOM(
                     this.states.
                         distinctUntilChanged(
-                            function(model) {
-                                return model.state;
+                            function(state) {
+                                return state.state;
                             },
                             function(prev, next) {
-                                var same = (prev === next);
-
-                                log('Are "states" distinct: ' + !same);
-
-                                return same;
+                                return (prev === next);
                             }).
                         map(this.render.bind(this)),
                         this._path
