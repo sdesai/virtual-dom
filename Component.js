@@ -16,9 +16,11 @@ function Component(state) {
     this.states = new Rx.BehaviorSubject(state);
     this.events = new Rx.Subject();
 
-    this.mounted = new Rx.BehaviorSubject({mounted:false});
+    if (this.bindEvents) {
+        this.bindEvents(this.events).subscribe(this.states);
+    }
 
-    this.bindEvents();
+    this.mounted = new Rx.BehaviorSubject({mounted:false});
 
     // DEBUG
     /*
@@ -47,7 +49,6 @@ extend(Component, Observable, {
     },
 
     eventHandler: function(state) {
-
         var self = this;
 
         if (!this._boundHandler) {
@@ -62,11 +63,9 @@ extend(Component, Observable, {
         return EventHook(this._boundHandler, state);
     },
 
-    bindEvents: function() {},
-
     toVDOM: function toVDOM(component, path) {
 
-        var obs,
+        var vdomsObs,
             children = component.children,
             isVNode = Boolean(children),
             childObservables;
@@ -74,13 +73,13 @@ extend(Component, Observable, {
         path = path || [];
 
         if (component instanceof ComponentDescriptor) {
-            obs = component.toComponent(path);
+            vdomsObs = component.toComponent(path);
 
         } else if (component instanceof Component) {
-            obs = component;
+            vdomsObs = component;
 
         } else if (component instanceof Observable) {
-            obs = component.switchMap(function(comp) {
+            vdomsObs = component.flatMapLatest(function(comp) {
                 return toVDOM(comp, path);
             });
 
@@ -90,18 +89,17 @@ extend(Component, Observable, {
                 return toVDOM(val, path.concat(index));
             });
 
-            childObservables.push(function() {
-
+            vdomsObs = Observable.combineLatest(childObservables, function() {
                 var latestChildren = toArray(arguments),
                     latestChild,
                     countWithDescendents,
                     count,
                     childIdx,
-                    clone;
+                    clonedVNode;
 
                 // TODO: Is this too heavy?
-                clone = cloneVirtualNode(component);
-                clone.children = latestChildren;
+                clonedVNode = cloneVirtualNode(component);
+                clonedVNode.children = latestChildren;
 
                 count = latestChildren.length;
                 countWithDescendents = count;
@@ -114,19 +112,17 @@ extend(Component, Observable, {
                     }
                 }
 
-                clone.count = countWithDescendents;
+                clonedVNode.count = countWithDescendents;
 
-                return clone;
+                return clonedVNode;
             });
 
-            obs = Observable.combineLatest.apply(Observable, childObservables);
-
         } else {
-            obs = ObservableOfSync(component);
+            vdomsObs = ObservableOfSync(component);
 
         }
 
-        return obs;
+        return vdomsObs;
     },
 
     mount: function(vNode) {
@@ -176,6 +172,7 @@ extend(Component, Observable, {
         var self = this;
 
         if (!this.vdoms) {
+
             this.vdoms =
                 this.toVDOM(
                     this.states.
@@ -186,7 +183,15 @@ extend(Component, Observable, {
                             function(prev, next) {
                                 return (prev === next);
                             }).
-                        map(this.render.bind(this)),
+                        flatMapLatest(function(state) {
+                            var vdom = self.render(state);
+
+                            if (!(vdom instanceof Observable)) {
+                                vdom = Observable.of(vdom);
+                            }
+
+                            return vdom;
+                        }),
                         this._path
                 ).
                 doAction(function(vdom) {
@@ -195,6 +200,7 @@ extend(Component, Observable, {
                 }).
                 publish().
                 refCount();
+
         }
 
         return this.vdoms.subscribe.apply(this.vdoms, arguments);

@@ -38,10 +38,12 @@ Model.prototype = {
         this.root.state = this.root.state.setIn(fullPath, value);
 
         if (this !== this.root) {
-            this.state = this.root.state.getIn(fullPath);
+            this.state = this.root.state.getIn(this.path);
         }
 
         this.changes.onNext(this);
+
+        return this;
     }
 };
 
