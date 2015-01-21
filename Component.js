@@ -7,6 +7,7 @@ var toArray = utils.toArray;
 var log = utils.log;
 var extend = utils.extend;
 var cloneVirtualNode = utils.cloneVirtualNode;
+var pluck = utils.pluck;
 
 var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
@@ -15,10 +16,6 @@ function Component(state) {
 
     this.states = new Rx.BehaviorSubject(state);
     this.events = new Rx.Subject();
-
-    if (this.bindEvents) {
-        this.bindEvents(this.events).subscribe(this.states);
-    }
 
     this.mounted = new Rx.BehaviorSubject({mounted:false});
 
@@ -48,19 +45,12 @@ extend(Component, Observable, {
         this.states.onNext(state);
     },
 
-    eventHandler: function(state) {
-        var self = this;
+    shouldComponentUpdate: function(prevState, nextState) {
+        return (prevState === nextState);
+    },
 
-        if (!this._boundHandler) {
-            this._boundHandler = function(state, e) {
-                self.events.onNext({
-                    e: e,
-                    state: state
-                });
-            };
-        }
-
-        return EventHook(this._boundHandler, state);
+    mapEvent: function(mapping) {
+        return EventHook(this.events, this.states, mapping);
     },
 
     toVDOM: function toVDOM(component, path) {
@@ -97,7 +87,6 @@ extend(Component, Observable, {
                     childIdx,
                     clonedVNode;
 
-                // TODO: Is this too heavy?
                 clonedVNode = cloneVirtualNode(component);
                 clonedVNode.children = latestChildren;
 
@@ -177,13 +166,11 @@ extend(Component, Observable, {
                 this.toVDOM(
                     this.states.
                         distinctUntilChanged(
-                            function(state) {
-                                return state.state;
-                            },
-                            function(prev, next) {
-                                return (prev === next);
-                            }).
+                            pluck('state'),
+                            this.shouldComponentUpdate
+                        ).
                         flatMapLatest(function(state) {
+
                             var vdom = self.render(state);
 
                             if (!(vdom instanceof Observable)) {
@@ -192,7 +179,7 @@ extend(Component, Observable, {
 
                             return vdom;
                         }),
-                        this._path
+                    this._path
                 ).
                 doAction(function(vdom) {
                     vdom.properties['data-cachekey'] = AttributeSetHook(null, self._cacheKey);

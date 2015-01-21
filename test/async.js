@@ -20,22 +20,25 @@ function logDiff(pair) {
 
 // ---- Custom Components ----
 
-
 var Prefix = Component.create('Prefix', {
 
     render: function(state) {
 
-        var vdom = elem('span', {
+        var selected = state.get('selected');
+
+        var vdom = elem('div', {
+
             key: state.get('key'),
+
             style: {
-                backgroundColor: '#eee',
+                backgroundColor: (selected) ? '#7AADCF' : '#eee',
                 border: '2px solid blue',
-                margin: '2px',
-                padding: '2px',
+                margin: '5px',
+                padding: '5px',
                 display: 'inline-block'
             },
 
-            onclick: this.eventHandler(state)
+            onclick: this.mapEvent(this.click)
 
         }, this.renderChildren(state));
 
@@ -46,12 +49,8 @@ var Prefix = Component.create('Prefix', {
         return [String(state.get('text'))];
     },
 
-    bindEvents: function(events) {
-        return events.pluck('state').map(this.mapClick);
-    },
-
-    mapClick: function(state) {
-        return state.set('text', 'Foo');
+    click: function(state) {
+        return state.set('selected', !state.get('selected'));
     }
 });
 
@@ -59,19 +58,15 @@ var Label = Component.create('Label', {
 
     render: function(state) {
 
-        // log('Rendering: ' + this._cacheKey);
-
         var vdom = elem('div', {
 
             key: state.get('key'),
 
-            onclick: this.eventHandler(state),
-
             style: {
                 backgroundColor: '#eee',
                 border: '2px solid green',
-                margin: '2px',
-                padding: '2px',
+                margin: '5px',
+                padding: '5px',
                 display: 'inline-block'
             }
 
@@ -97,11 +92,9 @@ var Root = Component.create('Root', {
 
     render: function(state) {
 
-        // log('Rendering: ' + this._cacheKey);
-
         var vdom = elem('div', {
 
-            onclick: this.eventHandler(state),
+            onclick: this.mapEvent(this.click),
 
             style: {
                 webkitUserSelect: 'none',
@@ -123,7 +116,8 @@ var Root = Component.create('Root', {
         var countText = elem('div', {
             style: {
                 color: '#fff',
-                paddingRight: '5px'
+                paddingRight: '5px',
+                display: 'inline-block'
             }
         }, ['Count: ' + count]);
 
@@ -134,20 +128,13 @@ var Root = Component.create('Root', {
         ];
     },
 
-    bindEvents: function(events) {
-        return events.pluck('state').map(this.mapClick);
-    },
-
-    mapClick: function(state) {
+    click: function(state) {
 
         var count = state.get(['count']) + 1,
             path = (count % 2) ? 'a' : 'b';
 
-        state.set('count', count);
-        state.set([path, 'text'], count);
-
-        // log('state.set(root, count)');
-        // log('state.set(' + path + ', text)');
+        state = state.set('count', count);
+        state = state.set([path, 'text'], count);
 
         return state;
     }

@@ -1,7 +1,6 @@
 var EvStore = require('ev-store');
-var log = require('./utils').log;
 
-module.exports = function(eventHandler, model) {
+module.exports = function(events, states, mapping) {
 
     return Object.create({
 
@@ -9,18 +8,25 @@ module.exports = function(eventHandler, model) {
 
             var es = EvStore(node);
             var eventName = prop.substring(2);
-            var boundHandler;
 
-            if (!es[eventName] || !es[eventName].handler || (es[eventName].handler !== eventHandler)) {
+            if (!es[eventName]) {
 
-                boundHandler = eventHandler.bind(null, model);
-
-                es[eventName] = {
-                    handler: eventHandler,
-                    boundHandler : boundHandler
+                es[eventName] = function(e) {
+                    events.onNext(e);
                 };
 
-                node.addEventListener(eventName, boundHandler);
+                events.
+                    filter(function(e) {
+                        return e.type === eventName;
+                    }).
+                    withLatestFrom(states, function(e, currentState) {
+                        return currentState;
+                    }).
+                    map(mapping).
+                    subscribe(states);
+
+                node.addEventListener(eventName, es[eventName]);
+
             }
         },
 
@@ -29,8 +35,8 @@ module.exports = function(eventHandler, model) {
             var es = EvStore(node);
             var eventName = prop.substring(2);
 
-            if (es[eventName] && es[eventName].boundHandler) {
-                node.removeEventListener(eventName, es[eventName].boundHandler);
+            if (es[eventName]) {
+                node.removeEventListener(eventName, es[eventName]);
             }
         }
     });
