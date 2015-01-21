@@ -41,12 +41,14 @@ extend(Component, Observable, {
     type: 'Thunk',
 
     setState: function(state) {
-        log('Component setState(): ' + this._cacheKey);
+        // log('Component setState(): ' + this._cacheKey);
         this.states.onNext(state);
     },
 
     shouldComponentUpdate: function(prevState, nextState) {
-        return (prevState === nextState);
+        var same = (prevState === nextState);
+        // log('shouldComponentUpdate: ' + this._cacheKey +  ": " + !same);
+        return same;
     },
 
     mapEvent: function(mapping) {
@@ -167,7 +169,7 @@ extend(Component, Observable, {
                     this.states.
                         distinctUntilChanged(
                             pluck('state'),
-                            this.shouldComponentUpdate
+                            this.shouldComponentUpdate.bind(this)
                         ).
                         flatMapLatest(function(state) {
 
@@ -212,7 +214,7 @@ ComponentDescriptor.prototype.toComponent = function(path) {
 
     path = path || [];
 
-    cacheKey = JSON.stringify(path) + "-" + componentConstructor.prototype.__name + ":type" + componentConstructor.guid;
+    cacheKey = JSON.stringify(path) + "-" + componentConstructor.prototype.__name + " (type " + componentConstructor.guid + ")";
     component = Component._cache[cacheKey];
 
     if (component) {

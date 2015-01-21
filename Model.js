@@ -31,17 +31,21 @@ Model.prototype = {
         return this.state.getIn(path);
     },
 
+    isRoot: function() {
+        return this === this.root;
+    },
+
     set: function(path, value) {
 
         var fullPath = this.path.concat(path);
 
-        this.root.state = this.root.state.setIn(fullPath, value);
-
-        if (this !== this.root) {
+        if (this.isRoot()) {
+            this.state = this.state.setIn(fullPath, value);
+            this.changes.onNext(this);
+        } else {
+            this.root.set(fullPath, value);
             this.state = this.root.state.getIn(this.path);
         }
-
-        this.changes.onNext(this.root);
 
         return this;
     }
