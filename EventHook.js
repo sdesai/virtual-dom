@@ -12,6 +12,7 @@ module.exports = function(events, states, mapping) {
             if (!es[eventName]) {
 
                 es[eventName] = function(e) {
+                    e.stopPropagation();
                     events.onNext(e);
                 };
 
@@ -25,7 +26,7 @@ module.exports = function(events, states, mapping) {
                     map(mapping).
                     subscribe(states);
 
-                node.addEventListener(eventName, es[eventName]);
+                node.addEventListener(eventName, es[eventName], false);
 
             }
         },
@@ -36,7 +37,7 @@ module.exports = function(events, states, mapping) {
             var eventName = prop.substring(2);
 
             if (es[eventName]) {
-                node.removeEventListener(eventName, es[eventName]);
+                node.removeEventListener(eventName, es[eventName], false);
             }
         }
     });

@@ -41,7 +41,7 @@ Model.prototype = {
             this.state = this.root.state.getIn(this.path);
         }
 
-        this.changes.onNext(this);
+        this.changes.onNext(this.root);
 
         return this;
     }
