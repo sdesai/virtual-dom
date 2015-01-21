@@ -116,6 +116,43 @@ extend(Component, Observable, {
         return vdomsObs;
     },
 
+    _subscribe: function() {
+
+        var self = this;
+
+        if (!this.vdoms) {
+
+            this.vdoms =
+                this.toVDOM(
+                    this.states.
+                        distinctUntilChanged(
+                            pluck('state'),
+                            this.shouldComponentUpdate.bind(this)
+                        ).
+                        flatMapLatest(function(state) {
+
+                            var vdom = self.render(state);
+
+                            if (!(vdom instanceof Observable)) {
+                                vdom = Observable.of(vdom);
+                            }
+
+                            return vdom;
+                        }),
+                    this._path
+                ).
+                doAction(function(vdom) {
+                    vdom.properties['data-cachekey'] = AttributeSetHook(null, self._cacheKey);
+                    vdom._component = self;
+                }).
+                publish().
+                refCount();
+
+        }
+
+        return this.vdoms.subscribe.apply(this.vdoms, arguments);
+    },
+
     mount: function(vNode) {
 
         this._mount(vNode);
@@ -156,43 +193,6 @@ extend(Component, Observable, {
             mounted: false,
             vNode: vNode
         });
-    },
-
-    _subscribe: function() {
-
-        var self = this;
-
-        if (!this.vdoms) {
-
-            this.vdoms =
-                this.toVDOM(
-                    this.states.
-                        distinctUntilChanged(
-                            pluck('state'),
-                            this.shouldComponentUpdate.bind(this)
-                        ).
-                        flatMapLatest(function(state) {
-
-                            var vdom = self.render(state);
-
-                            if (!(vdom instanceof Observable)) {
-                                vdom = Observable.of(vdom);
-                            }
-
-                            return vdom;
-                        }),
-                    this._path
-                ).
-                doAction(function(vdom) {
-                    vdom.properties['data-cachekey'] = AttributeSetHook(null, self._cacheKey);
-                    vdom._component = self;
-                }).
-                publish().
-                refCount();
-
-        }
-
-        return this.vdoms.subscribe.apply(this.vdoms, arguments);
     }
 });
 
