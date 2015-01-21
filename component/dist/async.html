@@ -1,0 +1,53 @@
+<html>
+    <head>
+        <style>
+            .prefix {
+                border: 2px solid blue;
+                background-color: #eee;
+                cursor: pointer;
+                margin: 5px;
+                padding: 5px;
+                display: inline-block;
+            }
+
+            .prefix.selected {
+                background-color: #7AADCF;
+            }
+
+            .label {
+                background-color: #eee;
+                border: 2px solid green;
+                cursor: default;
+                margin: 5px;
+                padding: 5px;
+                display: inline-block;
+            }
+
+            .root {
+                border: 2px solid red;
+                cursor: pointer;
+                padding: 5px;
+                background-color: #aaa;
+
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+            }
+
+            .root .count {
+                color: #fff;
+                padding-right: 5px;
+                display: inline-block;
+            }
+
+            #container {
+                display: inline-block;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+        <script type="text/javascript" src="async.js"></script>
+    </body>
+</html>

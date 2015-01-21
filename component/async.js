@@ -1,15 +1,16 @@
-var Rx = require('rx-dom/dist/rx.dom.js'); // For requestAnimationFrame scheduler
+var Rx = require('rx-dom/dist/rx.dom.js');
+
 var Observable = Rx.Observable;
 var requestAnimationFrame = Rx.Scheduler.requestAnimationFrame;
-var log = require('../utils').log;
 
 var elem = require('../h');
 var diff = require('../diff');
 var patch = require('../patch');
 var create = require('../create-element');
 
-var Component = require('../Component');
-var Model = require('../Model');
+var Component = require('./Component');
+var Model = require('./Model');
+var log = require('./utils').log;
 
 function logDiff(pair) {
     var oldVDOMChildren = pair[0].children;
@@ -29,16 +30,8 @@ var Prefix = Component.create('Prefix', {
 
         var vdom = elem('div', {
 
+            className: (selected) ? 'prefix selected' : 'prefix',
             key: state.get('key'),
-
-            style: {
-                backgroundColor: (selected) ? '#7AADCF' : '#eee',
-                border: '2px solid blue',
-                cursor: 'pointer',
-                margin: '5px',
-                padding: '5px',
-                display: 'inline-block'
-            },
 
             onclick: this.mapEvent(this.click)
 
@@ -62,16 +55,8 @@ var Label = Component.create('Label', {
 
         var vdom = elem('div', {
 
-            key: state.get('key'),
-
-            style: {
-                backgroundColor: '#eee',
-                border: '2px solid green',
-                cursor: 'default',
-                margin: '5px',
-                padding: '5px',
-                display: 'inline-block'
-            }
+            className: 'label',
+            key: state.get('key')
 
         }, this.renderChildren(state));
 
@@ -99,15 +84,8 @@ var Root = Component.create('Root', {
 
         var vdom = elem('div', {
 
-            onclick: this.mapEvent(this.click),
-
-            style: {
-                webkitUserSelect: 'none',
-                border: '2px solid red',
-                cursor: 'pointer',
-                padding: '5px',
-                backgroundColor: '#aaa'
-            },
+            className: 'root',
+            onclick: this.mapEvent(this.click)
 
         }, this.renderChildren(state));
 
@@ -117,14 +95,7 @@ var Root = Component.create('Root', {
     renderChildren: function(state) {
 
         var count = state.get('count');
-
-        var countText = elem('div', {
-            style: {
-                color: '#fff',
-                paddingRight: '5px',
-                display: 'inline-block'
-            }
-        }, ['Count: ' + count]);
+        var countText = elem('div', { className: 'count' }, ['Count: ' + count]);
 
         return [
             countText,
@@ -153,10 +124,8 @@ var rootComponent;
 var rootModel;
 
 function initialRender(VDOM) {
-    var container = makeContainer();
-
     rootElem = create(VDOM);
-    container.appendChild(rootElem);
+    document.getElementById('container').appendChild(rootElem);
 }
 
 function incrementalRender(VDOMPair) {
@@ -215,14 +184,3 @@ rootComponent.
     sample(0, requestAnimationFrame).
     pairwise().
     forEach(incrementalRender);
-
-
-// ---------- DOM Fluff ----------
-
-function makeContainer() {
-    var container = document.createElement('div');
-    container.id = 'container';
-    container.style.display = 'inline-block';
-    document.body.appendChild(container);
-    return container;
-}

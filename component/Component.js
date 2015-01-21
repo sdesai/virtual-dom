@@ -1,8 +1,8 @@
 var Rx = require('rx');
-var utils = require('./utils');
-var AttributeSetHook = require('./virtual-hyperscript/hooks/attribute-hook');
+var AttributeSetHook = require('../virtual-hyperscript/hooks/attribute-hook');
 var EventHook = require('./EventHook');
 
+var utils = require('./utils');
 var toArray = utils.toArray;
 var log = utils.log;
 var extend = utils.extend;

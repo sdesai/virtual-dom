@@ -25,6 +25,9 @@
     "email": "matt@mattesch.info"
   },
   "dependencies": {
+    "rx": "*",
+    "rx-dom": "*",
+    "immutable": "*",
     "browser-split": "0.0.1",
     "error": "^4.3.0",
     "ev-store": "^7.0.0",
@@ -34,16 +37,6 @@
     "x-is-array": "0.1.0",
     "x-is-string": "0.1.0"
   },
-  "devDependencies": {
-    "istanbul": "^0.3.4",
-    "min-document": "^2.6.1",
-    "opn": "^1.0.0",
-    "run-browser": "git://github.com/Raynos/run-browser",
-    "tap-dot": "^0.2.1",
-    "tap-spec": "^2.1.1",
-    "tape": "^3.0.3",
-    "zuul": "^1.10.0"
-  },
   "licenses": [
     {
       "type": "MIT",
@@ -51,34 +44,6 @@
     }
   ],
   "scripts": {
-    "test": "node ./test/index.js | tap-spec",
-    "dot": "node ./test/index.js | tap-dot",
-    "start": "node ./index.js",
-    "cover": "istanbul cover --report html --print detail ./test/index.js",
-    "view-cover": "istanbul report html && opn ./coverage/index.html",
-    "browser": "run-browser test/index.js",
-    "phantom": "run-browser test/index.js -b | tap-spec",
-    "dist": "browserify --standalone virtual-dom index.js > dist/virtual-dom.js",
-    "travis-test": "npm run phantom && npm run cover && istanbul report lcov && ((cat coverage/lcov.info | coveralls) || exit 0)",
-    "release": "npm run release-patch",
-    "release-patch": "git checkout master && npm version patch && git push origin master --tags && npm publish",
-    "release-minor": "git checkout master && npm version minor && git push origin master --tags && npm publish",
-    "release-major": "git checkout master && npm version major && git push origin master --tags && npm publish"
-  },
-  "testling": {
-    "files": "test/*.js",
-    "browsers": [
-      "ie/8..latest",
-      "firefox/17..latest",
-      "firefox/nightly",
-      "chrome/22..latest",
-      "chrome/canary",
-      "opera/12..latest",
-      "opera/next",
-      "safari/5.1..latest",
-      "ipad/6.0..latest",
-      "iphone/6.0..latest",
-      "android-browser/4.2..latest"
-    ]
+    "builddemo": "browserify component/async.js > component/dist/async.js"
   }
 }
