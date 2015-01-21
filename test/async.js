@@ -1,5 +1,6 @@
 var Rx = require('rx-dom/dist/rx.dom.js'); // For requestAnimationFrame scheduler
 var Observable = Rx.Observable;
+var requestAnimationFrame = Rx.Scheduler.requestAnimationFrame;
 var log = require('../utils').log;
 
 var elem = require('../h');
@@ -33,6 +34,7 @@ var Prefix = Component.create('Prefix', {
             style: {
                 backgroundColor: (selected) ? '#7AADCF' : '#eee',
                 border: '2px solid blue',
+                cursor: 'pointer',
                 margin: '5px',
                 padding: '5px',
                 display: 'inline-block'
@@ -65,6 +67,7 @@ var Label = Component.create('Label', {
             style: {
                 backgroundColor: '#eee',
                 border: '2px solid green',
+                cursor: 'default',
                 margin: '5px',
                 padding: '5px',
                 display: 'inline-block'
@@ -79,7 +82,9 @@ var Label = Component.create('Label', {
         var children = [];
 
         if (state.get('prefix')) {
-            children.push(Prefix(state.bind('prefix')));
+            children.push(
+                Prefix(state.bind('prefix'))
+            );
         }
         children.push(String(state.get('text')));
 
@@ -174,17 +179,23 @@ rootModel = new Model({
 
     a: {
         text: 0,
+
         key: 'a',
+
         prefix: {
-            text: 'A:'
+            text: 'A: ',
+            selected: false
         }
     },
 
     b: {
         text: 0,
+
         key: 'b',
+
         prefix: {
-            text: 'B:'
+            text: 'B: ',
+            selected: false
         }
     }
 });
@@ -193,7 +204,7 @@ rootComponent = Root(rootModel).toComponent();
 
 rootModel.
     changes.
-    sample(0, Rx.Scheduler.requestAnimationFrame).
+    sample(0, requestAnimationFrame).
     forEach(updateRootComponent);
 
 rootComponent.
@@ -201,7 +212,7 @@ rootComponent.
     forEach(initialRender);
 
 rootComponent.
-    sample(0, Rx.Scheduler.requestAnimationFrame).
+    sample(0, requestAnimationFrame).
     pairwise().
     forEach(incrementalRender);
 

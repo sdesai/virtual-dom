@@ -1,8 +1,11 @@
 var EvStore = require('ev-store');
+var Rx = require('rx');
 
 module.exports = function(events, states, mapping) {
 
     return Object.create({
+
+        unhooked: new Rx.Subject(),
 
         hook: function(node, prop) {
 
@@ -17,6 +20,7 @@ module.exports = function(events, states, mapping) {
                 };
 
                 events.
+                    takeUntil(this.unhooked).
                     filter(function(e) {
                         return e.type === eventName;
                     }).
@@ -27,7 +31,6 @@ module.exports = function(events, states, mapping) {
                     subscribe(states);
 
                 node.addEventListener(eventName, es[eventName], false);
-
             }
         },
 
@@ -38,6 +41,9 @@ module.exports = function(events, states, mapping) {
 
             if (es[eventName]) {
                 node.removeEventListener(eventName, es[eventName], false);
+
+                this.unhooked.onNext();
+                this.unhooked.onComplete();
             }
         }
     });
