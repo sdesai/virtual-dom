@@ -1,3 +1,5 @@
+var Rx = require('rx');
+var Observable = Rx.Observable;
 
 function toArray(arrayLike) {
     return Array.prototype.slice.call(arrayLike, 0);
@@ -5,6 +7,14 @@ function toArray(arrayLike) {
 
 function log(msg) {
     console.log(msg);
+}
+
+function wrapInObservable(value) {
+    if (!(value instanceof Observable)) {
+        value = Observable.of(value);
+    }
+
+    return value;
 }
 
 function extend(constructorFn, base, props) {
@@ -61,5 +71,6 @@ module.exports = {
     mix: mix,
     extend: extend,
     toArray: toArray,
-    cloneVirtualNode: cloneVirtualNode
+    cloneVirtualNode: cloneVirtualNode,
+    wrapInObservable: wrapInObservable
 };

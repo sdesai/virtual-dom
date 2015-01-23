@@ -9,6 +9,7 @@ var log = utils.log;
 var extend = utils.extend;
 var cloneVirtualNode = utils.cloneVirtualNode;
 var pluck = utils.pluck;
+var wrapInObservable = utils.wrapInObservable;
 
 var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
@@ -19,22 +20,6 @@ function Component(state) {
     this.events = new Rx.Subject();
 
     this.mounted = new Rx.BehaviorSubject({mounted:false});
-
-    // DEBUG
-    /*
-    this.mounted.subscribe(function(o) {
-        var component = o.vNode && o.vNode._component,
-            cacheKey = component && component._cacheKey;
-
-        if (cacheKey) {
-            if (o.mounted) {
-                log("Mounted: " + cacheKey);
-            } else {
-                log("Unmounted: " + cacheKey);
-            }
-        }
-    });
-    */
 }
 
 extend(Component, Observable, {
@@ -42,14 +27,11 @@ extend(Component, Observable, {
     type: 'Thunk',
 
     setState: function(state) {
-        // log('Component setState(): ' + this._cacheKey);
         this.states.onNext(state);
     },
 
     shouldComponentUpdate: function(prevState, nextState) {
-        var same = (prevState === nextState);
-        // log('shouldComponentUpdate: ' + this._cacheKey +  ": " + !same);
-        return same;
+        return (prevState === nextState);
     },
 
     mapEvent: function(mapping) {
@@ -77,7 +59,6 @@ extend(Component, Observable, {
             });
 
         } else if (isVNode && children.length > 0) {
-
             childObservables = children.map(function(val, index) {
                 return toVDOM(val, path.concat(index));
             });
@@ -131,14 +112,9 @@ extend(Component, Observable, {
                             this.shouldComponentUpdate.bind(this)
                         ).
                         flatMapLatest(function(state) {
-
                             var vdom = self.render(state);
 
-                            if (!(vdom instanceof Observable)) {
-                                vdom = Observable.of(vdom);
-                            }
-
-                            return vdom;
+                            return wrapInObservable(vdom);
                         }),
                     this._path
                 ).
@@ -148,7 +124,6 @@ extend(Component, Observable, {
                 }).
                 publish().
                 refCount();
-
         }
 
         return this.vdoms.subscribe.apply(this.vdoms, arguments);
@@ -215,7 +190,7 @@ ComponentDescriptor.prototype.toComponent = function(path) {
 
     path = path || [];
 
-    cacheKey = JSON.stringify(path) + "-" + componentConstructor.prototype.__name + " (type " + componentConstructor.guid + ")";
+    cacheKey = JSON.stringify(path) + "-" + componentConstructor.__name + " (type " + componentConstructor.guid + ")";
     component = Component._cache[cacheKey];
 
     if (component) {
@@ -240,7 +215,7 @@ Component.create = function(name, proto) {
     }, Component, proto);
 
     componentConstructor.guid = guid;
-    componentConstructor.prototype.__name = name;
+    componentConstructor.__name = name;
 
     return function(state) {
         return new ComponentDescriptor(componentConstructor, state);
@@ -252,8 +227,9 @@ module.exports = Component;
 },{"../virtual-hyperscript/hooks/attribute-hook":36,"./EventHook":2,"./utils":8,"rx":27}],2:[function(require,module,exports){
 var EvStore = require('ev-store');
 var Rx = require('rx');
+var wrapInObservable = require('./utils').wrapInObservable;
 
-module.exports = function(events, states, mapping) {
+module.exports = function(events, states, mapEventToNewState) {
 
     return Object.create({
 
@@ -279,7 +255,10 @@ module.exports = function(events, states, mapping) {
                     withLatestFrom(states, function(e, currentState) {
                         return currentState;
                     }).
-                    map(mapping).
+                    flatMapLatest(function(currentState) {
+                        var newState = mapEventToNewState(currentState);
+                        return wrapInObservable(newState);
+                    }).
                     subscribe(states);
 
                 node.addEventListener(eventName, es[eventName], false);
@@ -300,12 +279,12 @@ module.exports = function(events, states, mapping) {
         }
     });
 }
-},{"ev-store":16,"rx":27}],3:[function(require,module,exports){
+},{"./utils":8,"ev-store":16,"rx":27}],3:[function(require,module,exports){
 var elem = require('../h');
 var Rx = require('rx');
+var Observable = Rx.Observable;
 var Component = require('./Component');
 var Prefix = require('./Prefix');
-var Observable = Rx.Observable;
 
 
 
@@ -396,8 +375,8 @@ module.exports = Model;
 },{"immutable":20,"rx":27}],5:[function(require,module,exports){
 var Component = require('./Component');
 var elem = require('../h');
-
-
+var Rx = require('rx');
+var Observable = Rx.Observable;
 
 module.exports = Component.create('Prefix', {
 
@@ -422,15 +401,13 @@ module.exports = Component.create('Prefix', {
     },
 
     click: function(state) {
-        return state.set('selected', !state.get('selected'));
+        return Observable.of(state.set('selected', !state.get('selected')));
     }
 });
-},{"../h":11,"./Component":1}],6:[function(require,module,exports){
+},{"../h":11,"./Component":1,"rx":27}],6:[function(require,module,exports){
 var Component = require('./Component');
 var Label = require('./Label');
 var elem = require('../h');
-
-
 
 module.exports = Component.create('Root', {
 
@@ -491,8 +468,6 @@ function logDiff(pair) {
 }
 */
 
-// ---- App Code ----
-
 var Root = require('./Root');
 
 var rootElem;
@@ -510,10 +485,6 @@ function incrementalRender(VDOMPair) {
 
     var patches = diff(oldVDOM, newVDOM);
     rootElem = patch(rootElem, patches);
-}
-
-function updateRootComponent(state) {
-    rootComponent.setState(state);
 }
 
 rootModel = new Model({
@@ -545,11 +516,6 @@ rootModel = new Model({
 
 rootComponent = Root(rootModel).toComponent();
 
-rootModel.
-    changes.
-    sample(0, requestAnimationFrame).
-    forEach(updateRootComponent);
-
 rootComponent.
     take(1).
     forEach(initialRender);
@@ -559,6 +525,8 @@ rootComponent.
     pairwise().
     forEach(incrementalRender);
 },{"../create-element":9,"../diff":10,"../patch":29,"./Model":4,"./Root":6,"rx-dom/dist/rx.dom.js":22}],8:[function(require,module,exports){
+var Rx = require('rx');
+var Observable = Rx.Observable;
 
 function toArray(arrayLike) {
     return Array.prototype.slice.call(arrayLike, 0);
@@ -566,6 +534,14 @@ function toArray(arrayLike) {
 
 function log(msg) {
     console.log(msg);
+}
+
+function wrapInObservable(value) {
+    if (!(value instanceof Observable)) {
+        value = Observable.of(value);
+    }
+
+    return value;
 }
 
 function extend(constructorFn, base, props) {
@@ -622,9 +598,10 @@ module.exports = {
     mix: mix,
     extend: extend,
     toArray: toArray,
-    cloneVirtualNode: cloneVirtualNode
+    cloneVirtualNode: cloneVirtualNode,
+    wrapInObservable: wrapInObservable
 };
-},{}],9:[function(require,module,exports){
+},{"rx":27}],9:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement

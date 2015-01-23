@@ -18,8 +18,6 @@ function logDiff(pair) {
 }
 */
 
-// ---- App Code ----
-
 var Root = require('./Root');
 
 var rootElem;
@@ -37,10 +35,6 @@ function incrementalRender(VDOMPair) {
 
     var patches = diff(oldVDOM, newVDOM);
     rootElem = patch(rootElem, patches);
-}
-
-function updateRootComponent(state) {
-    rootComponent.setState(state);
 }
 
 rootModel = new Model({
@@ -71,11 +65,6 @@ rootModel = new Model({
 });
 
 rootComponent = Root(rootModel).toComponent();
-
-rootModel.
-    changes.
-    sample(0, requestAnimationFrame).
-    forEach(updateRootComponent);
 
 rootComponent.
     take(1).

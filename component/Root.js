@@ -2,8 +2,6 @@ var Component = require('./Component');
 var Label = require('./Label');
 var elem = require('../h');
 
-
-
 module.exports = Component.create('Root', {
 
     render: function(state) {

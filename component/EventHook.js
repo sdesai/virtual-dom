@@ -1,7 +1,8 @@
 var EvStore = require('ev-store');
 var Rx = require('rx');
+var wrapInObservable = require('./utils').wrapInObservable;
 
-module.exports = function(events, states, mapping) {
+module.exports = function(events, states, mapEventToNewState) {
 
     return Object.create({
 
@@ -27,7 +28,10 @@ module.exports = function(events, states, mapping) {
                     withLatestFrom(states, function(e, currentState) {
                         return currentState;
                     }).
-                    map(mapping).
+                    flatMapLatest(function(currentState) {
+                        var newState = mapEventToNewState(currentState);
+                        return wrapInObservable(newState);
+                    }).
                     subscribe(states);
 
                 node.addEventListener(eventName, es[eventName], false);

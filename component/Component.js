@@ -8,6 +8,7 @@ var log = utils.log;
 var extend = utils.extend;
 var cloneVirtualNode = utils.cloneVirtualNode;
 var pluck = utils.pluck;
+var wrapInObservable = utils.wrapInObservable;
 
 var Observable = Rx.Observable;
 var ObservableOfSync = Observable.ofWithScheduler.bind(Observable, Rx.Scheduler.immediate);
@@ -18,22 +19,6 @@ function Component(state) {
     this.events = new Rx.Subject();
 
     this.mounted = new Rx.BehaviorSubject({mounted:false});
-
-    // DEBUG
-    /*
-    this.mounted.subscribe(function(o) {
-        var component = o.vNode && o.vNode._component,
-            cacheKey = component && component._cacheKey;
-
-        if (cacheKey) {
-            if (o.mounted) {
-                log("Mounted: " + cacheKey);
-            } else {
-                log("Unmounted: " + cacheKey);
-            }
-        }
-    });
-    */
 }
 
 extend(Component, Observable, {
@@ -41,14 +26,11 @@ extend(Component, Observable, {
     type: 'Thunk',
 
     setState: function(state) {
-        // log('Component setState(): ' + this._cacheKey);
         this.states.onNext(state);
     },
 
     shouldComponentUpdate: function(prevState, nextState) {
-        var same = (prevState === nextState);
-        // log('shouldComponentUpdate: ' + this._cacheKey +  ": " + !same);
-        return same;
+        return (prevState === nextState);
     },
 
     mapEvent: function(mapping) {
@@ -76,7 +58,6 @@ extend(Component, Observable, {
             });
 
         } else if (isVNode && children.length > 0) {
-
             childObservables = children.map(function(val, index) {
                 return toVDOM(val, path.concat(index));
             });
@@ -130,14 +111,9 @@ extend(Component, Observable, {
                             this.shouldComponentUpdate.bind(this)
                         ).
                         flatMapLatest(function(state) {
-
                             var vdom = self.render(state);
 
-                            if (!(vdom instanceof Observable)) {
-                                vdom = Observable.of(vdom);
-                            }
-
-                            return vdom;
+                            return wrapInObservable(vdom);
                         }),
                     this._path
                 ).
@@ -147,7 +123,6 @@ extend(Component, Observable, {
                 }).
                 publish().
                 refCount();
-
         }
 
         return this.vdoms.subscribe.apply(this.vdoms, arguments);
@@ -214,7 +189,7 @@ ComponentDescriptor.prototype.toComponent = function(path) {
 
     path = path || [];
 
-    cacheKey = JSON.stringify(path) + "-" + componentConstructor.prototype.__name + " (type " + componentConstructor.guid + ")";
+    cacheKey = JSON.stringify(path) + "-" + componentConstructor.__name + " (type " + componentConstructor.guid + ")";
     component = Component._cache[cacheKey];
 
     if (component) {
@@ -239,7 +214,7 @@ Component.create = function(name, proto) {
     }, Component, proto);
 
     componentConstructor.guid = guid;
-    componentConstructor.prototype.__name = name;
+    componentConstructor.__name = name;
 
     return function(state) {
         return new ComponentDescriptor(componentConstructor, state);

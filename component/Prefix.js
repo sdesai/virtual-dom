@@ -1,7 +1,7 @@
 var Component = require('./Component');
 var elem = require('../h');
-
-
+var Rx = require('rx');
+var Observable = Rx.Observable;
 
 module.exports = Component.create('Prefix', {
 
@@ -26,6 +26,6 @@ module.exports = Component.create('Prefix', {
     },
 
     click: function(state) {
-        return state.set('selected', !state.get('selected'));
+        return Observable.of(state.set('selected', !state.get('selected')));
     }
 });

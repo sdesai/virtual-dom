@@ -1,8 +1,8 @@
 var elem = require('../h');
 var Rx = require('rx');
+var Observable = Rx.Observable;
 var Component = require('./Component');
 var Prefix = require('./Prefix');
-var Observable = Rx.Observable;
 
 
 
